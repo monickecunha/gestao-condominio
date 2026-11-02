@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile;
 import residencia.gestao_condominio.entities.*;
 import residencia.gestao_condominio.repositories.*;
 
+import java.util.UUID;
 import java.time.Instant;
 import java.util.Arrays;
 
@@ -46,7 +47,7 @@ public class TestConfig implements CommandLineRunner {
         Resident r2 = new Resident(null, "Lucas Oliveira", "33344455566", "51955554444", "123456", u2, "PENDING");
         residentRepository.saveAll(Arrays.asList(r1, r2));
 
-        Complaint comp1 = new Complaint(null, "PROT-2026-0001", "Barulho excessivo após as 22h no bloco vizinho.", Instant.parse("2026-11-02T20:00:00Z"), "OPEN", false, r1, c1);
+        Complaint comp1 = new Complaint(null, UUID.randomUUID().toString(), "Barulho excessivo após as 22h no bloco vizinho.", Instant.parse("2026-11-02T20:00:00Z"), "OPEN", c1);
         complaintRepository.save(comp1);
     }
 }

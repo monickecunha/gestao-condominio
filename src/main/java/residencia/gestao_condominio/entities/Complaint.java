@@ -25,13 +25,6 @@ public class Complaint implements Serializable {
     @Column(nullable = false, length = 30)
     private String status; // Ex: OPEN, IN_PROGRESS, RESOLVED, REJECTED
 
-    @Column(nullable = false)
-    private Boolean isAnonymous;
-
-    @ManyToOne
-    @JoinColumn(name = "resident_id", nullable = false)
-    private Resident resident;
-
     @ManyToOne
     @JoinColumn(name = "condominium_id", nullable = false)
     private Condominium condominium;
@@ -39,14 +32,12 @@ public class Complaint implements Serializable {
     public Complaint() {
     }
 
-    public Complaint(Long id, String protocol, String description, Instant createdAt, String status, Boolean isAnonymous, Resident resident, Condominium condominium) {
+    public Complaint(Long id, String protocol, String description, Instant createdAt, String status, Condominium condominium) {
         this.id = id;
         this.protocol = protocol;
         this.description = description;
         this.createdAt = createdAt;
         this.status = status;
-        this.isAnonymous = isAnonymous;
-        this.resident = resident;
         this.condominium = condominium;
     }
 
@@ -88,22 +79,6 @@ public class Complaint implements Serializable {
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public Boolean getIsAnonymous() {
-        return isAnonymous;
-    }
-
-    public void setIsAnonymous(Boolean anonymous) {
-        isAnonymous = anonymous;
-    }
-
-    public Resident getResident() {
-        return resident;
-    }
-
-    public void setResident(Resident resident) {
-        this.resident = resident;
     }
 
     public Condominium getCondominium() {
