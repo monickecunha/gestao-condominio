@@ -1,3 +1,12 @@
+# Escopo da entrega — revisão de 02/11/2026
+
+A entrega de **16/11/2026** será focada exclusivamente no **backend/API**. A equipe tem quatro desenvolvedores backend. As funcionalidades e regras abaixo serão implementadas e demonstradas por requisições HTTP e testes automatizados, sem exigir telas.
+
+- **H2 para testes**, conforme decisão da equipe. Para demonstração local, o plano propõe um perfil H2 em memória com dados fictícios e carga reproduzível; essa configuração ainda será implementada em K02 e validada pela equipe.
+- Modelagem, repositórios e testes de persistência continuam no backend. PostgreSQL, provisionamento de banco externo, migrações para esse banco e frontend ficam opcionais, somente após o backend estar entregue e se houver tempo.
+- A validação será por documentação da API, coleção de requisições HTTP e testes de integração. Ferramentas específicas e mecanismo de autenticação serão definidos em K01/K11.
+- A alteração de escopo não significa que o H2 ou os endpoints já estejam implementados.
+
 # 1. Análise do problema — 5 Porquês
 
 **Problema:** Dificuldade dos moradores em realizar denúncias no condomínio sem comprometer sua identidade.
@@ -32,7 +41,7 @@ Ausência de identificação ou priorização da necessidade de um canal estrutu
 
 ## 2.1. Visão geral
 
-O projeto consiste no desenvolvimento de um sistema web de gestão condominial, cuja primeira versão será focada no registro, acompanhamento e gerenciamento de denúncias anônimas.
+O projeto consiste no desenvolvimento de um backend/API de gestão condominial, cuja primeira versão será focada no registro, acompanhamento e gerenciamento de denúncias anônimas.
 
 A solução permitirá que moradores cadastrados e autenticados comuniquem ocorrências relacionadas ao condomínio sem que sua identidade seja diretamente associada às denúncias registradas.
 
@@ -44,13 +53,13 @@ A aplicação será desenvolvida de forma a permitir sua expansão futura para o
 
 ## 2.2. Objetivo do MVP
 
-Desenvolver uma aplicação web funcional que permita o cadastro e a autenticação de moradores, o registro de denúncias anônimas, o acompanhamento das ocorrências por meio de protocolo e o gerenciamento das denúncias pela administração do condomínio.
+Desenvolver um backend/API funcional que permita o cadastro e a autenticação de moradores, o registro de denúncias anônimas, o acompanhamento das ocorrências por meio de protocolo e o gerenciamento das denúncias pela administração do condomínio.
 
 O MVP tem como objetivo validar a viabilidade da solução, oferecendo um canal estruturado de comunicação entre moradores e administração, com foco na privacidade, organização e acompanhamento das ocorrências.
 
 ## 2.3. Público-alvo
 
-O sistema terá três perfis principais de usuários.
+O sistema terá dois perfis principais de usuários: Resident e Manager.
 
 ### 2.3.1. Moradores (Resident)
 
@@ -76,7 +85,7 @@ As funcionalidades serão organizadas em módulos, de acordo com as responsabili
 
 **F01 — Cadastro do condomínio**
 
-Na primeira tela cadastrar o condomínio e o síndico na plataforma, mediante o fornecimento dos dados necessários para identificação e autenticação.
+Disponibilizar uma operação da API para cadastrar o condomínio e o síndico na plataforma, mediante o fornecimento dos dados necessários para identificação e autenticação.
 
 **F02 — Cadastro dos usuários**
 
@@ -100,7 +109,7 @@ Aprovar o cadastro dos usuários.
 
 **F06 — Registro de denúncias anônimas**
 
-Permitir que moradores autenticados registrem denúncias por meio de um formulário.
+Permitir que moradores autenticados registrem denúncias por meio de requisições à API.
 
 O sistema não deverá associar diretamente a identidade do morador à denúncia registrada.
 
@@ -135,11 +144,11 @@ O envio de imagens será opcional.
 
 Os arquivos deverão passar por validações de formato, tamanho e segurança antes do armazenamento.
 
-**F11 — Validação do formulário**
+**F11 — Validação dos dados da requisição**
 
 Validar as informações obrigatórias antes de permitir o envio da denúncia.
 
-Caso existam informações inválidas ou ausentes, o sistema deverá apresentar mensagens orientando a correção.
+Caso existam informações inválidas ou ausentes, a API deverá retornar erros de validação com mensagens orientando a correção.
 
 ## 3.3. Módulo de acompanhamento
 
@@ -257,7 +266,7 @@ As medidas previstas incluem:
 
 # 6. Armazenamento de imagens
 
-Para a primeira versão do sistema, as imagens anexadas às denúncias serão armazenadas no PostgreSQL.
+Para esta entrega backend, o armazenamento das imagens será validado com H2 nos testes, por meio da abstração de armazenamento. A implementação deve permitir envio e recuperação dos bytes sem depender de frontend ou banco externo. PostgreSQL fica como evolução opcional, caso haja tempo após a conclusão do backend.
 
 A aplicação deverá utilizar uma interface de abstração de armazenamento, permitindo que futuramente seja implementada uma solução baseada em armazenamento de objetos na nuvem.
 
@@ -267,7 +276,7 @@ A estratégia inicial tem como objetivo simplificar o desenvolvimento do MVP, ma
 
 # 7. Critérios de sucesso do MVP
 
-O MVP será considerado funcional quando os seguintes cenários puderem ser executados com sucesso:
+O MVP backend será considerado funcional quando os seguintes cenários puderem ser executados com sucesso por requisições HTTP e testes de integração com H2. Menções a visualizar/acessar significam obter respostas de endpoints autorizados, sem exigir interface gráfica:
 
 1. Um morador consegue realizar seu cadastro e autenticar-se na plataforma.
 2. Um morador autorizado consegue registrar uma denúncia sem associação direta à sua identidade.
@@ -275,7 +284,7 @@ O MVP será considerado funcional quando os seguintes cenários puderem ser exec
 4. O morador consegue selecionar uma categoria e anexar imagens opcionalmente.
 5. O sistema gera um protocolo após o registro.
 6. O morador consegue consultar o andamento da denúncia utilizando suas credenciais de acompanhamento.
-7. Um administrador consegue autenticar-se e acessar a área administrativa.
+7. Um administrador consegue autenticar-se e acessar os endpoints administrativos.
 8. O administrador consegue visualizar as denúncias do condomínio sob sua responsabilidade.
 9. O administrador consegue consultar detalhes e imagens das denúncias.
 10. O administrador consegue atualizar o status e registrar providências.
@@ -290,6 +299,9 @@ O MVP será considerado funcional quando os seguintes cenários puderem ser exec
 Após a implementação e validação do MVP, o sistema poderá receber novas funcionalidades relacionadas à gestão condominial.
 
 Entre as possibilidades estão:
+
+- Frontend com telas de cadastro, denúncia, acompanhamento e gestão (opcional após o backend).
+- Integração com PostgreSQL ou outro banco externo, incluindo migrações e provisionamento (opcional após o backend).
 
 - Notificações automáticas sobre alterações de status.
 - Dashboard administrativo com indicadores.
