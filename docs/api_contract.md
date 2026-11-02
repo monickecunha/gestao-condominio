@@ -57,14 +57,14 @@ Cria uma nova unidade no condomínio. (Requer perfil `MANAGER`).
     ```json
     {
       "block": "A",
-      "unitNumber": "101"
+      "number": "101"
     }
     ```
 *   **Response (201 Created):** Retorna os dados da unidade criada com seu `id`.
 
-### `POST /residents/approve/{residentId}`
+### `POST /bindings/{id}/approve`
 Aprova a solicitação de vínculo de um morador a uma unidade. (Requer perfil `MANAGER`).
-*   **Response (200 OK):** Sem corpo, apenas status de sucesso.
+*   **Response (204 No Content):** Sem corpo, apenas status de sucesso.
 
 ---
 

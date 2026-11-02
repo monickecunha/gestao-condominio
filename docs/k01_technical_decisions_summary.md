@@ -26,7 +26,7 @@ This document consolidates the technical definitions required to complete issue 
 
 * **Required Unit Fields (`Unit`):**
   * `block` (String, max 20 chars — optional; e.g., "Block A").
-  * `unitNumber` (String, max 20 chars — required; e.g., "101", "House 12").
+  * `number` (String, max 20 chars — required; e.g., "101", "House 12").
   * `condoId` (Foreign Key — required).
 * **Unit Creation Workflow:**
   * Units are created beforehand by a **Manager (`MANAGER`)** through the management endpoint (`POST /api/v1/condominiums/{condoId}/units`).
