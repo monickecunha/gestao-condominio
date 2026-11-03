@@ -36,5 +36,6 @@ Os documentos da aplicação estão na pasta [docs](docs/):
 - [Contrato da API](docs/api_contract.md)
 - [Arquitetura e entidades](docs/architecture_and_entities.md)
 - [Diagrama relacional](docs/diagrama_er_condominio.md)
+- [Comandos de testes](docs/testing.md)
 - [Guia do Kanban](docs/kanban.md)
 - [Dados dos cartões do Kanban](docs/kanban-items.json)
