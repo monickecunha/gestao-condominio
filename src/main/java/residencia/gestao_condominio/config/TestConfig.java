@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Profile;
 import residencia.gestao_condominio.entities.*;
 import residencia.gestao_condominio.repositories.*;
 
-import java.util.UUID;
 import java.time.Instant;
 import java.util.Arrays;
 
@@ -30,6 +29,9 @@ public class TestConfig implements CommandLineRunner {
     @Autowired
     private ComplaintRepository complaintRepository;
 
+    @Autowired
+    private UnitBindingRepository bindingRepository;
+
     @Override
     public void run(String... args) throws Exception {
 
@@ -43,11 +45,27 @@ public class TestConfig implements CommandLineRunner {
         Administrator admin = new Administrator(null, "Carlos Silva", "11122233344", "51977776666", "123456", c1);
         administratorRepository.save(admin);
 
-        Resident r1 = new Resident(null, "Ana Souza", "22233344455", "51966665555", "123456", u1, "APPROVED");
-        Resident r2 = new Resident(null, "Lucas Oliveira", "33344455566", "51955554444", "123456", u2, "PENDING");
+        Resident r1 = new Resident(null, "Ana Souza", "22233344455", "51966665555", "123456");
+        Resident r2 = new Resident(null, "Lucas Oliveira", "33344455566", "51955554444", "123456");
         residentRepository.saveAll(Arrays.asList(r1, r2));
 
-        Complaint comp1 = new Complaint(null, UUID.randomUUID().toString(), "Barulho excessivo após as 22h no bloco vizinho.", Instant.parse("2026-11-02T20:00:00Z"), "OPEN", c1);
+        UnitBinding b1 = new UnitBinding();
+        b1.setResident(r1);
+        b1.setUnit(u1);
+        b1.setStatus(BindingStatus.APPROVED);
+        b1.setPrimaryResident(true);
+        UnitBinding b2 = new UnitBinding();
+        b2.setResident(r2);
+        b2.setUnit(u2);
+        b2.setStatus(BindingStatus.PENDING);
+        bindingRepository.saveAll(Arrays.asList(b1, b2));
+
+        Complaint comp1 = new Complaint();
+        comp1.setDescription("Barulho excessivo após as 22h no bloco vizinho.");
+        comp1.setCategory(ComplaintCategory.NOISE);
+        comp1.setCreatedAt(Instant.parse("2026-11-02T20:00:00Z"));
+        comp1.setStatus(ComplaintStatus.RECEIVED);
+        comp1.setCondominium(c1);
         complaintRepository.save(comp1);
     }
 }

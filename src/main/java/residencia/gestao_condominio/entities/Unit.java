@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.Objects;
 
 @Entity
-@Table(name = "tb_unit")
+@Table(name = "tb_unit", uniqueConstraints = @UniqueConstraint(columnNames = {"condominium_id", "block", "number"}))
 public class Unit implements Serializable {
 
     @Id
@@ -17,8 +17,8 @@ public class Unit implements Serializable {
     @JoinColumn(name = "condominium_id", nullable = false)
     private Condominium condominium;
 
-    @Column(length = 20)
-    private String block;
+    @Column(nullable = false, length = 20)
+    private String block = "";
 
     @Column(nullable = false, length = 20)
     private String number;
@@ -29,7 +29,7 @@ public class Unit implements Serializable {
     public Unit(Long id, Condominium condominium, String block, String number) {
         this.id = id;
         this.condominium = condominium;
-        this.block = block;
+        this.block = block == null ? "" : block;
         this.number = number;
     }
 
@@ -54,7 +54,7 @@ public class Unit implements Serializable {
     }
 
     public void setBlock(String block) {
-        this.block = block;
+        this.block = block == null ? "" : block;
     }
 
     public String getNumber() {
@@ -63,6 +63,12 @@ public class Unit implements Serializable {
 
     public void setNumber(String number) {
         this.number = number;
+    }
+
+    @PrePersist
+    @PreUpdate
+    void normalizeBlock() {
+        block = block == null ? "" : block.trim();
     }
 
     @Override

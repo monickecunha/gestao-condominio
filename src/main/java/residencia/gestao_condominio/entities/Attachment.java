@@ -1,80 +1,51 @@
 package residencia.gestao_condominio.entities;
 
 import jakarta.persistence.*;
-
-import java.io.Serializable;
-import java.util.Objects;
+import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "tb_attachment")
-public class Attachment implements Serializable {
-
+@org.hibernate.annotations.Check(constraints = "size >= 0 AND size = octet_length(content)")
+public class Attachment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "complaint_id", nullable = false)
     private Complaint complaint;
 
     @Column(nullable = false, length = 255)
     private String fileName;
 
-    @Column(nullable = false, length = 500)
-    private String fileUrl;
+    @Column(nullable = false, length = 100)
+    private String mimeType;
 
-    public Attachment() {
-    }
+    @Column(nullable = false)
+    private Long size;
 
-    public Attachment(Long id, Complaint complaint, String fileName, String fileUrl) {
-        this.id = id;
-        this.complaint = complaint;
-        this.fileName = fileName;
-        this.fileUrl = fileUrl;
-    }
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARBINARY)
+    @Column(nullable = false, length = 5242880)
+    private byte[] content;
 
-    public Long getId() {
-        return id;
-    }
+    public Attachment() {}
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Long getId() { return id; }
+    public Complaint getComplaint() { return complaint; }
+    public void setComplaint(Complaint complaint) { this.complaint = complaint; }
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+    public String getMimeType() { return mimeType; }
+    public void setMimeType(String mimeType) { this.mimeType = mimeType; }
+    public Long getSize() { return size; }
+    public void setSize(Long size) { this.size = size; }
+    public byte[] getContent() { return content; }
+    public void setContent(byte[] content) { this.content = content; }
 
-    public Complaint getComplaint() {
-        return complaint;
-    }
-
-    public void setComplaint(Complaint complaint) {
-        this.complaint = complaint;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public String getFileUrl() {
-        return fileUrl;
-    }
-
-    public void setFileUrl(String fileUrl) {
-        this.fileUrl = fileUrl;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Attachment that = (Attachment) o;
-        return Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
+    @PrePersist
+    @PreUpdate
+    void updateSize() {
+        if (content != null) size = (long) content.length;
     }
 }

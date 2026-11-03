@@ -6,12 +6,17 @@ import java.io.Serializable;
 import java.util.Objects;
 
 @Entity
+@org.hibernate.annotations.Check(constraints = "singleton = true")
 @Table(name = "tb_condominium")
 public class Condominium implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // The MVP has exactly one condominium setup per application database.
+    @Column(nullable = false, unique = true, updatable = false)
+    private Boolean singleton = true;
 
     @Column(nullable = false, length = 150)
     private String name;
