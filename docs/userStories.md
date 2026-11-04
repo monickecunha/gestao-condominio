@@ -1,5 +1,7 @@
 # Histórias de usuário
 
+**Entrega de 16/11/2026:** todas as histórias serão atendidas pelo backend/API e verificadas via HTTP e testes com H2. Não exigem frontend nesta etapa. Banco externo e frontend são opcionais após a conclusão do backend; ver o escopo em [planning.md](planning.md).
+
 | ID | História de usuário | Origem |
 | ---- | ---- | ---- |
 | US01 | Como síndico, quero cadastrar meu condomínio e minha conta para iniciar sua administração na plataforma. | F01 |

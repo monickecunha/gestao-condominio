@@ -1,0 +1,352 @@
+[
+  {
+    "id": "K01",
+    "p": "P0",
+    "d": "03/11",
+    "front": "Equipe",
+    "title": "Consolidar decisões do backend e resolver pendências da API",
+    "refs": "planning.md §§2–6; US01–US12",
+    "deps": "Nenhuma",
+    "accept": [
+      "Definir mecanismo de autenticação e comportamento de logout/expiração; as docs exigem autenticação, mas não escolhem a solução técnica.",
+      "Definir campos obrigatórios e fluxo de criação das unidades e identificação do morador responsável; aprovação pelo síndico já está definida.",
+      "Esclarecer se consulta por protocolo exige login e qual é o escopo de acesso; listar precisamente campos públicos e internos do histórico/providências.",
+      "Definir formatos, quantidade e tamanho máximo de imagens; validação obrigatória já está definida.",
+      "Registrar contrato inicial de endpoints, payloads, respostas e erros (detalhamento em K11).",
+      "Confirmar execução/demonstração local com H2, responsáveis e disponibilidade diária; H2 para testes já foi escolhido."
+    ],
+    "decided": [
+      "Entrega somente backend; frontend e banco externo opcionais se houver tempo. Decisão expressa de Monicke em 02/11/2026; incorporada ao escopo de planning.md.",
+      "H2 escolhido para testes em lugar da dependência de PostgreSQL nesta etapa. Decisão expressa de Monicke em 02/11/2026; implementação pendente em K02.",
+      "Dois perfis: Resident e Manager — planning.md §2.3. Corrigida localmente a menção inconsistente a três perfis.",
+      "Cadastro/vínculo submetido à aprovação do síndico; somente moradores cadastrados, autenticados e autorizados denunciam — F02, F05, F21, RN01 e RN11.",
+      "Denúncia vinculada ao condomínio, sem associação direta à conta do autor — RN02, RN03, RN12 e planning.md §5.",
+      "Consulta por protocolo único/imprevisível; acompanhamento não expõe dados internos nem dados que comprometam terceiros — F12–F14, RN06 e planning.md §5. Necessidade de login na consulta ainda não está definida.",
+      "Descrição/categoria obrigatórias, seis categorias previstas, local/imagens opcionais — F07–F10 e RN04–RN05.",
+      "Status e transições definidos; RECEIVED inicial, histórico obrigatório e rejeição justificada — planning.md §4 e RN07–RN10.",
+      "Validação de imagens e interface de abstração de armazenamento previstas — F10 e planning.md §6. Limites numéricos ainda pendentes."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K02",
+    "p": "P0",
+    "d": "03/11",
+    "front": "A",
+    "title": "Preparar backend, H2 para testes e build",
+    "refs": "Base técnica do MVP",
+    "deps": "Nenhuma",
+    "accept": [
+      "Validar versões Java 25/Spring Boot do pom e padronizar execução do backend.",
+      "Configurar dependência/perfil H2 para testes isolados; build e testes não podem exigir PostgreSQL nem serviço externo.",
+      "Preparar proposta de perfil local H2 em memória com dados fictícios reproduzíveis para exercitar a API; documentar perda dos dados ao reiniciar e validar com a equipe.",
+      "Documentar comandos de execução e testes; configurar verificação de build/testes nos PRs. Não configurar banco externo nesta etapa."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K03",
+    "p": "P0",
+    "d": "04/11",
+    "front": "B",
+    "title": "Modelar entidades e validar persistência com H2",
+    "refs": "RN01–RN12; planning.md §6",
+    "deps": "K01, K02",
+    "accept": [
+      "Modelar condomínio, unidade, conta/vínculo, denúncia, histórico, providência e imagem com entidades/repositórios.",
+      "Denúncia tem condomínio e protocolo único, sem usuário/unidade do denunciante nem createdBy identificador.",
+      "Separar dados internos e de acompanhamento; definir relacionamentos e restrições e inicialização reproduzível do esquema de testes H2.",
+      "Testar persistência, unicidade, integridade e isolamento entre dois condomínios com H2. Migrações e adaptação a banco externo são opcionais em K21."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K04",
+    "p": "P0",
+    "d": "05/11",
+    "front": "A",
+    "title": "Implementar autenticação e autorização",
+    "refs": "US04; F03; RN01, RN08, RN11",
+    "deps": "K01, K02, K03",
+    "accept": [
+      "Implementar autenticação na API e armazenamento seguro de senhas conforme decisão de K01; documentar expiração/logout aplicáveis.",
+      "Proteger endpoints por perfil e condomínio.",
+      "Impedir denúncia de morador pendente/rejeitado e ações administrativas por morador.",
+      "Testar credenciais inválidas, ausência de autenticação e acesso entre condomínios por HTTP com H2."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K05",
+    "p": "P0",
+    "d": "05/11",
+    "front": "B",
+    "title": "Cadastrar condomínio, síndico e unidades",
+    "refs": "US01; F01; apoio a F21",
+    "deps": "K03, K04",
+    "accept": [
+      "Cadastrar condomínio e síndico via API sem estado parcial em falha.",
+      "Implementar endpoints mínimos de unidades conforme decisão de K01.",
+      "Validar obrigatórios/duplicados e restringir unidades ao síndico autorizado.",
+      "Demonstrar requisições/respostas e testar persistência/transações com H2, sem depender de telas."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K06",
+    "p": "P0",
+    "d": "06/11",
+    "front": "B",
+    "title": "Solicitar cadastro e aprovar/rejeitar vínculo",
+    "refs": "US02, US03; F02, F05, F21; RN01, RN11",
+    "deps": "K04, K05",
+    "accept": [
+      "Solicitação de vínculo via API inicia pendente.",
+      "Endpoints permitem ao síndico listar e aprovar/rejeitar somente vínculos do próprio condomínio.",
+      "Somente vínculo aprovado permite denunciar.",
+      "Testar autoaprovação, duplicidade e condomínio incorreto com H2."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K07",
+    "p": "P0",
+    "d": "06/11",
+    "front": "C",
+    "title": "Registrar denúncia anônima e gerar protocolo",
+    "refs": "US06; F06–F09, F11, F12; RN01–RN07, RN12",
+    "deps": "K03, K04, K05, K06",
+    "accept": [
+      "Validar na API categoria entre as seis previstas e descrição obrigatória; local opcional.",
+      "Validar vínculo aprovado e condomínio pelo acesso autorizado e gravar RECEIVED.",
+      "Gerar protocolo único imprevisível e devolvê-lo após persistência bem-sucedida.",
+      "Não persistir autor nem vínculo autor/denúncia nos logs; testar autorização, validação e unicidade com H2."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K08",
+    "p": "P0",
+    "d": "07/11",
+    "front": "C",
+    "title": "Consultar andamento pelo protocolo",
+    "refs": "US08; F13, F14; RN06, RN12",
+    "deps": "K01, K07",
+    "accept": [
+      "Consultar por endpoint de protocolo conforme acesso definido em K01.",
+      "Retornar status/histórico permitido sem dados internos ou identidade de terceiros.",
+      "Tratar protocolo inválido e tentativas abusivas sem permitir enumeração.",
+      "Validar com H2 sem relação persistida entre denúncia e conta do autor."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K09",
+    "p": "P0",
+    "d": "07/11",
+    "front": "D",
+    "title": "Listar denúncias e detalhes administrativos",
+    "refs": "US09, US10; F15, F16; RN02",
+    "deps": "K04, K07",
+    "accept": [
+      "Endpoint de listagem retorna protocolo, categoria, data e status com paginação.",
+      "Endpoint de detalhes retorna descrição/local; recuperação dos anexos será integrada em K14.",
+      "Restringir listagem e detalhes ao condomínio administrado, inclusive por ID direto.",
+      "Testar via API com H2: morador sem permissão e síndico de outro condomínio."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K10",
+    "p": "P0",
+    "d": "08/11",
+    "front": "D",
+    "title": "Atualizar status, histórico e providências",
+    "refs": "US11, US12; F17–F19; RN07–RN10",
+    "deps": "K09",
+    "accept": [
+      "Aplicar RECEIVED → UNDER_REVIEW → IN_PROGRESS → RESOLVED e UNDER_REVIEW → REJECTED; impedir transições inválidas na API.",
+      "Exigir justificativa de rejeição e persistir status/histórico atomicamente.",
+      "Endpoint de providências registra descrição/data com visibilidade definida em K01.",
+      "Testar via HTTP com H2 as transições, permissões e reflexo no acompanhamento."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K11",
+    "p": "P0",
+    "d": "06/11",
+    "front": "D",
+    "title": "Documentar contrato HTTP e exemplos da API",
+    "refs": "US01–US12; documentação técnica do backend",
+    "deps": "K01; atualização contínua conforme K04–K10, K14–K16",
+    "accept": [
+      "Documentar rotas, métodos, payloads, respostas, autenticação e erros previstos.",
+      "Fornecer contrato consultável (por exemplo OpenAPI) e exemplos executáveis de requisições, sem exigir interface própria.",
+      "Definir padrão de erros/validações em conjunto com os responsáveis pelos endpoints.",
+      "Conferir contrato contra a implementação; manter exemplos de cadastro, aprovação, denúncia e acompanhamento."
+    ],
+    "note": "Replanejado: substitui o antigo cartão de telas de acesso. Frontend opcional consolidado em K20.",
+    "scope": "backend"
+  },
+  {
+    "id": "K12",
+    "p": "P0",
+    "d": "08/11",
+    "front": "B",
+    "title": "Testar fluxo do morador via API com H2",
+    "refs": "US01–US08; F01–F14",
+    "deps": "K02, K04–K08; contrato K11",
+    "accept": [
+      "Automatizar cadastro, autenticação, aprovação, registro da denúncia e consulta por protocolo com H2.",
+      "Cobrir campos inválidos, acesso pendente/rejeitado e ausência de vínculo entre denúncia e autor.",
+      "Verificar respostas, status HTTP e protocolo retornado; dados isolados e reproduzíveis por execução.",
+      "Incluir casos de imagens e outros moradores quando K14/K16 estiverem disponíveis; contrato e coleção HTTP para reprodução."
+    ],
+    "note": "Replanejado: substitui telas de denúncia/acompanhamento por testes do backend. Frontend opcional em K20.",
+    "scope": "backend"
+  },
+  {
+    "id": "K13",
+    "p": "P0",
+    "d": "09/11",
+    "front": "D",
+    "title": "Testar fluxo administrativo integrado via API",
+    "refs": "US09–US12; F15–F19",
+    "deps": "K02, K09, K10; contrato K11",
+    "accept": [
+      "Automatizar listagem, detalhes, status e providências com H2 e requisições HTTP.",
+      "Testar justificativa obrigatória, transições inválidas e isolamento entre condomínios.",
+      "Demonstrar ciclo completo sem frontend: morador denuncia, síndico trata e morador acompanha.",
+      "Registrar roteiro HTTP reproduzível e complementar casos de imagens/filtros quando K14/K15 estiverem disponíveis."
+    ],
+    "note": "Replanejado: substitui painel visual por integração e testes administrativos. Frontend opcional em K20.",
+    "scope": "backend"
+  },
+  {
+    "id": "K14",
+    "p": "P1",
+    "d": "11/11",
+    "front": "C",
+    "title": "Implementar upload e recuperação de imagens na API",
+    "refs": "US07, US10; F10, F16; RN05; planning.md §§5–6",
+    "deps": "K03, K07, K09",
+    "accept": [
+      "Implementar interface de armazenamento e validar persistência/recuperação dos bytes com H2; PostgreSQL não é requisito desta entrega.",
+      "Validar formato real, quantidade/tamanho definidos em K01 e tratar metadados identificadores.",
+      "Disponibilizar endpoints de upload opcional e recuperação administrativa protegida, sem tela.",
+      "Testar arquivo inválido, limites, recuperação dos bytes e tentativa de acesso por outro condomínio com H2."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K15",
+    "p": "P1",
+    "d": "11/11",
+    "front": "D",
+    "title": "Filtrar denúncias por categoria, status e período",
+    "refs": "US09; F20",
+    "deps": "K09",
+    "accept": [
+      "Implementar parâmetros de filtros combinados na API por categoria, status e período.",
+      "Preservar isolamento por condomínio e paginação.",
+      "Testar datas inválidas, ausência/combinação de filtros e resultado vazio com H2."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K16",
+    "p": "P1",
+    "d": "12/11",
+    "front": "B",
+    "title": "Cadastrar outros moradores da mesma unidade",
+    "refs": "US05; F04",
+    "deps": "K01, K06",
+    "accept": [
+      "Implementar endpoint de cadastro/convite escolhido em K01 para morador responsável.",
+      "Novo vínculo depende de aprovação do síndico.",
+      "Restringir à unidade autorizada e validar duplicidade.",
+      "Testar a API com H2, incluindo cadastro em outra unidade; nenhuma tela necessária."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K17",
+    "p": "P0",
+    "d": "12/11",
+    "front": "A",
+    "title": "Validar privacidade e proteção contra abuso",
+    "refs": "RN01–RN12; planning.md §5",
+    "deps": "K04, K07, K08, K10, K14",
+    "accept": [
+      "Revisar dados no H2, respostas HTTP, logs e anexos para evitar associação direta do denunciante.",
+      "Verificar acesso entre dois condomínios e separação de dados internos/públicos.",
+      "Aplicar limites a autenticação, registro e consulta sem criar associação persistente autor/denúncia.",
+      "Testar entradas maliciosas e documentar evidências/correções no backend."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K18",
+    "p": "P0",
+    "d": "14/11",
+    "front": "Equipe",
+    "title": "Homologar backend e corrigir falhas",
+    "refs": "planning.md §7; US01–US12",
+    "deps": "K04–K17",
+    "accept": [
+      "Executar e registrar os 13 critérios de sucesso por HTTP/testes com H2, conforme escopo atualizado de planning.md §7.",
+      "Cobrir vínculos pendentes/rejeitados, convites, imagens, filtros, transições e acessos proibidos.",
+      "Validar execução reproduzível do backend sem frontend ou banco externo e corrigir falhas impeditivas.",
+      "Realizar revisão cruzada e congelar funcionalidades em 12/11; frontend/PostgreSQL opcionais não bloqueiam homologação."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K19",
+    "p": "P0",
+    "d": "15/11",
+    "front": "A + Equipe",
+    "title": "Preparar entrega e demonstração do backend",
+    "refs": "Entrega em 16/11/2026",
+    "deps": "K02; conclusão: K18",
+    "accept": [
+      "Executar backend em ambiente limpo conforme configuração local acordada em K01/K02, sem exigir PostgreSQL ou frontend.",
+      "Documentar instalação, execução, testes H2, contrato HTTP e limitações (incluindo dados temporários).",
+      "Preparar dados fictícios e roteiro/coleção de requisições para demonstrar os fluxos e respostas da API.",
+      "Ensaiar em 15/11 e validar entrega em 16/11; infraestrutura externa e telas não são critérios obrigatórios."
+    ],
+    "scope": "backend"
+  },
+  {
+    "id": "K20",
+    "p": "P2",
+    "d": null,
+    "front": "A definir",
+    "title": "Opcional: frontend após conclusão do backend",
+    "refs": "Evolução opcional autorizada em 02/11/2026; US01–US12",
+    "deps": "K18, K19; somente se houver tempo",
+    "accept": [
+      "Confirmar capacidade e escolher tecnologia somente após backend validado.",
+      "Criar telas de acesso/cadastros, denúncia/acompanhamento e administração consumindo a API.",
+      "Validar fluxo integrado e apresentação em telas. Não bloqueia entrega de 16/11."
+    ],
+    "scope": "opcional"
+  },
+  {
+    "id": "K21",
+    "p": "P2",
+    "d": null,
+    "front": "A definir",
+    "title": "Opcional: integrar PostgreSQL ou banco externo",
+    "refs": "Evolução opcional autorizada em 02/11/2026; planning.md §§6 e 8",
+    "deps": "K18, K19; somente se houver tempo",
+    "accept": [
+      "Confirmar capacidade e banco escolhido após backend validado com H2.",
+      "Configurar perfil externo, credenciais por ambiente e migrações reproduzíveis.",
+      "Validar consultas, constraints, transações e imagens no banco escolhido; aprovação em H2 não substitui esta validação.",
+      "Manter testes H2 independentes e documentar configuração externa. Não bloqueia entrega de 16/11."
+    ],
+    "scope": "opcional"
+  }
+]
