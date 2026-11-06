@@ -68,6 +68,7 @@ public abstract class User implements Serializable {
         this.phone = phone;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getPassword() {
         return password;
     }

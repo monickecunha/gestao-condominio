@@ -65,3 +65,11 @@ Os testes usam H2 em memória e não exigem PostgreSQL nem a aplicação iniciad
 Os relatórios ficam em `target/surefire-reports/`. Em caso de falha, consulte o relatório da classe indicada antes de enviar o PR.
 
 Se aparecer erro de versão do Java, confira `JAVA_HOME` e a saída do comando de versão do Maven. Se o wrapper não tiver permissão de execução no Linux/macOS, execute `chmod +x mvnw`.
+
+## Segurança HTTP (K04)
+
+Veja [autenticação e autorização](k04_authentication_authorization.md) para sessão, logout, configuração de chave e matriz de permissões. A classe `SecurityHttpTests` valida a API em servidor real com H2 isolado, incluindo tokens inválidos e acesso entre condomínios. Seus handlers de prova são exclusivos dos testes; não substituem os endpoints de negócio dos próximos cartões.
+
+```powershell
+.\mvnw.cmd "-Dtest=SecurityHttpTests" test
+```

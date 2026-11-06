@@ -144,3 +144,6 @@ Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).
     }
     ```
 *   **Response (200 OK):** Status atualizado.
+### Complemento K04
+
+A implementação de autenticação e a matriz de autorização estão em [K04](k04_authentication_authorization.md). O login aceita adicionalmente `condoId` opcional para selecionar um condomínio já associado (obrigatório se houver mais de um). Sem associação válida retorna 403; credenciais inválidas retornam 401. Token expirado/inválido retorna 401; perfil, condomínio ou vínculo sem permissão retorna 403. Logout consiste em descartar o token no cliente.

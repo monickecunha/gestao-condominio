@@ -15,6 +15,9 @@ import java.util.Arrays;
 public class TestConfig implements CommandLineRunner {
 
     @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Autowired
     private CondominiumRepository condominiumRepository;
 
     @Autowired
@@ -43,10 +46,13 @@ public class TestConfig implements CommandLineRunner {
         unitRepository.saveAll(Arrays.asList(u1, u2));
 
         Administrator admin = new Administrator(null, "Carlos Silva", "11122233344", "51977776666", "123456", c1);
+        admin.setPassword(passwordEncoder.encode(admin.getPassword()));
         administratorRepository.save(admin);
 
         Resident r1 = new Resident(null, "Ana Souza", "22233344455", "51966665555", "123456");
         Resident r2 = new Resident(null, "Lucas Oliveira", "33344455566", "51955554444", "123456");
+        r1.setPassword(passwordEncoder.encode(r1.getPassword()));
+        r2.setPassword(passwordEncoder.encode(r2.getPassword()));
         residentRepository.saveAll(Arrays.asList(r1, r2));
 
         UnitBinding b1 = new UnitBinding();
