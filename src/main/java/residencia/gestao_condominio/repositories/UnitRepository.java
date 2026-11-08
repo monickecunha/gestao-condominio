@@ -20,7 +20,7 @@ public interface UnitRepository extends JpaRepository<Unit, Long> {
             select u from Unit u where u.condominium.id = :condoId
             and u.id = (select b.unit.id from UnitBinding b where b.id = :bindingId)
             """)
-    Optional<Unit> lockForApproval(Long condoId, Long bindingId);
+    Optional<Unit> lockForBindingDecision(Long condoId, Long bindingId);
 
     List<Unit> findAllByCondominiumIdOrderByIdAsc(Long condoId);
 }

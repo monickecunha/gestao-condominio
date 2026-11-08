@@ -39,16 +39,10 @@ public class BindingService {
 
     @Transactional
     public void approve(Long condoId, Long bindingId) {
-        // Serialize decisions on the same unit before reading its queue or primary resident.
-        var unit = units.lockForApproval(condoId, bindingId)
-                .orElseThrow(() -> new AccessDeniedException("Access denied"));
-        var binding = bindings.findByIdAndUnitCondominiumId(bindingId, condoId)
-                .orElseThrow(() -> new AccessDeniedException("Access denied"));
-        if (binding.getStatus() != BindingStatus.PENDING) {
-            throw new BindingConflictException("Only pending bindings can be approved");
-        }
-        if (!bindings.existsByUnitIdAndPrimarySlotIsNotNull(unit.getId())) {
-            var first = bindings.findFirstByUnitIdAndStatusOrderByRequestedAtAscIdAsc(unit.getId(), BindingStatus.PENDING)
+        var binding = lockPendingBinding(condoId, bindingId);
+        Long unitId = binding.getUnit().getId();
+        if (!bindings.existsByUnitIdAndPrimarySlotIsNotNull(unitId)) {
+            var first = bindings.findFirstByUnitIdAndStatusOrderByRequestedAtAscIdAsc(unitId, BindingStatus.PENDING)
                     .orElseThrow();
             if (!first.getId().equals(bindingId)) {
                 throw new BindingConflictException("Decide the earliest pending request for this unit first");
@@ -56,6 +50,24 @@ public class BindingService {
             binding.setPrimaryResident(true);
         }
         binding.setStatus(BindingStatus.APPROVED);
+    }
+
+    @Transactional
+    public void reject(Long condoId, Long bindingId) {
+        var binding = lockPendingBinding(condoId, bindingId);
+        binding.setStatus(BindingStatus.REJECTED);
+    }
+
+    private UnitBinding lockPendingBinding(Long condoId, Long bindingId) {
+        // Serialize decisions on the same unit before reading its queue or primary resident.
+        units.lockForBindingDecision(condoId, bindingId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+        var binding = bindings.findByIdAndUnitCondominiumId(bindingId, condoId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+        if (binding.getStatus() != BindingStatus.PENDING) {
+            throw new BindingConflictException("Only pending bindings can be decided");
+        }
+        return binding;
     }
 
     @Transactional

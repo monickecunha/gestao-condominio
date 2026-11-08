@@ -256,6 +256,47 @@ class SecurityHttpTests {
         }
     }
 
+    @Test void rejectingFirstApplicantLeavesTheNextEligibleForPrimary() throws Exception {
+        String manager = login("99988877766");
+        var unit = units.save(new Unit(null, condos.findById(otherCondo).orElseThrow(), "B", "507"));
+        try {
+            var ana = registerApplicant("Ana", "44455566677", unit);
+            var bruno = registerApplicant("Bruno", "55566677788", unit);
+            String anaPath = "/bindings/" + ana.getId();
+            String reject = anaPath + "/reject";
+            String resident = login("44455566677");
+
+            assertEquals(401, call("POST", reject, null, null).statusCode());
+            assertEquals(403, call("POST", reject, resident, null).statusCode());
+            assertEquals(403, call("POST", reject, login("11122233344"), null).statusCode());
+            assertEquals(403, call("POST", "/bindings/999999/reject", manager, null).statusCode());
+            var decision = call("POST", reject, manager, null);
+            assertEquals(204, decision.statusCode(), decision.body());
+            assertTrue(decision.body().isEmpty());
+            var rejected = bindings.findById(ana.getId()).orElseThrow();
+            assertEquals(BindingStatus.REJECTED, rejected.getStatus());
+            assertFalse(rejected.isPrimaryResident());
+            assertEquals(409, call("POST", reject, manager, null).statusCode());
+            assertEquals(409, call("POST", anaPath + "/approve", manager, null).statusCode());
+
+            var queue = json.readTree(call("GET", "/bindings", manager, null).body());
+            assertEquals(1, queue.size());
+            assertEquals(bruno.getId().longValue(), queue.get(0).get("bindingId").asLong());
+            String brunoPath = "/bindings/" + bruno.getId();
+            assertEquals(204, call("POST", brunoPath + "/approve", manager, null).statusCode());
+            assertTrue(bindings.findById(bruno.getId()).orElseThrow().isPrimaryResident());
+            assertEquals(409, call("POST", brunoPath + "/reject", manager, null).statusCode());
+            assertEquals(403, call("POST", "/complaints", resident, "{}").statusCode());
+            assertEquals(403, call("POST", "/complaints", login("44455566677"), "{}").statusCode());
+        } finally {
+            bindings.deleteAll(bindings.findAllByUnitCondominiumId(otherCondo));
+            units.delete(unit);
+            for (String cpf : java.util.List.of("44455566677", "55566677788")) {
+                users.findByCpf(cpf).ifPresent(users::delete);
+            }
+        }
+    }
+
     private UnitBinding registerApplicant(String name, String cpf, Unit unit) throws Exception {
         var request = Map.of("name", name, "cpf", cpf, "password", "123456", "unitId", unit.getId());
         var response = call("POST", "/bindings", null, json.writeValueAsString(request));

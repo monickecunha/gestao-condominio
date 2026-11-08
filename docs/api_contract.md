@@ -8,7 +8,7 @@ Este documento define os principais endpoints, payloads (DTOs) e retornos da API
 1. Na raiz do projeto, com JDK 25 configurado, execute `./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. No PowerShell, use `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=setup"`. Espere a aplicação iniciar e mantenha o terminal aberto. Esse perfil usa H2 vazio; reiniciar a aplicação limpa os dados.
 2. No Postman, clique em **Import** e selecione a [coleção de exemplos](gestao-condominio.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
 3. Abra as requisições na ordem numérica e clique em **Send** em cada uma, ou use o executor da coleção. O login do síndico salva o token e o ID do condomínio; o cadastro da unidade salva seu ID. As chamadas seguintes usam esses valores automaticamente.
-4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). Para repetir desde o primeiro passo, reinicie o perfil `setup`.
+4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
 
 ## Endpoints disponíveis nesta versão
 
@@ -23,6 +23,7 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | `POST /bindings` | No Auth | Corpo com `name`, `cpf`, `password` e `unitId` (o `id` retornado ao criar a unidade). | 201 com `bindingId`, `unitId` e `status: "PENDING"` |
 | `GET /bindings` | Bearer do síndico | Sem corpo. Parâmetro opcional `status=PENDING`. | 200 com os pedidos pendentes do condomínio, inclusive `[]` |
 | `POST /bindings/{bindingId}/approve` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
+| `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 
 As operações de gestão de vínculos e denúncias descritas adiante como previstas servem de referência para os próximos cartões.
 
@@ -204,6 +205,26 @@ curl -i -X POST -H "Authorization: Bearer $TOKEN" \
 | 401 | Token ausente ou inválido. |
 | 403 | Morador, pedido de outro condomínio ou ID inexistente. |
 | 409 | Pedido fora de ordem para a escolha do responsável, ou vínculo que já saiu de `PENDING`. |
+
+### `POST /bindings/{bindingId}/reject` — Rejeitar pedido
+
+Use o ID do vínculo no caminho e o token do síndico do condomínio. O pedido
+deve estar pendente. A operação retira o vínculo da fila, preserva a conta do
+morador e deixa o próximo pendente elegível para responsável se a unidade ainda
+estiver sem responsável. O morador rejeitado consegue fazer login; registrar
+denúncia exige ao menos um vínculo aprovado no condomínio do token.
+
+```bash
+curl -i -X POST -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/v1/bindings/$BINDING_ID/reject"
+```
+
+| Código | Resultado |
+|---|---|
+| 204 | Vínculo alterado para `REJECTED`; resposta sem corpo. |
+| 401 | Sem token válido. |
+| 403 | Morador, pedido de outro condomínio ou ID inexistente. |
+| 409 | O vínculo já recebeu uma decisão ou está fora do estado `PENDING`. |
 
 ---
 

@@ -33,6 +33,12 @@ public class BindingController {
         bindings.approve(jwt.<Number>getClaim("condoId").longValue(), bindingId);
     }
 
+    @PostMapping("/{bindingId}/reject")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reject(@PathVariable Long bindingId, @AuthenticationPrincipal Jwt jwt) {
+        bindings.reject(jwt.<Number>getClaim("condoId").longValue(), bindingId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BindingResponse register(@Valid @RequestBody BindingRequest request) {

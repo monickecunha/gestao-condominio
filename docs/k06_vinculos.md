@@ -1,4 +1,4 @@
-# K06 — Cadastro, consulta e aprovação de vínculos
+# K06 — Cadastro, consulta, aprovação e rejeição de vínculos
 
 A primeira entrega da [K06](https://github.com/monickecunha/gestao-condominio/issues/6) permite que um novo morador crie sua conta e solicite vínculo com uma unidade existente. O pedido nasce `PENDING`. Com essa conta, o morador já consegue fazer login; a autorização para denunciar depende da aprovação do vínculo pelo síndico.
 
@@ -68,6 +68,26 @@ Para validar manualmente, importe a [coleção atualizada](gestao-condominio.pos
 e execute em ordem com o banco vazio. As requisições 7 e 8 guardam os IDs de Ana e Bruno;
 as requisições 12 a 16 testam permissões, prioridade, aprovação e a fila resultante.
 
-## Continuidade do cartão
+## Rejeição pelo síndico
 
-O próximo bloco é a rejeição de um pedido pelo síndico. Quando um pedido sair da fila por rejeição, o próximo pendente poderá ser considerado para responsável de uma unidade ainda sem responsável. O convite de moradores adicionais permanece na K16. [Decisões da K01](k01_technical_decisions_summary.md)
+O síndico usa `POST /api/v1/bindings/{bindingId}/reject`, sem corpo. Na mesma transação, o serviço bloqueia a unidade, confere o condomínio e exige um pedido `PENDING`. A rejeição grava `REJECTED` e retorna `204`. Aprovar ou rejeitar novamente esse pedido resulta em `409`. O morador conserva a conta e pode fazer login. Se esse era seu único vínculo, continua recebendo `403` ao tentar denunciar.
+
+Se Ana e Bruno pediram, nessa ordem, uma unidade sem responsável, rejeitar Ana deixa Bruno como o primeiro pendente. Bruno só se torna responsável quando o síndico o aprova. A rejeição não promove o próximo candidato automaticamente.
+
+### Roteiro de revisão no Postman
+
+Depois das requisições 1 a 16, a coleção usa outra unidade (102) e CPFs distintos para reproduzir a decisão alternativa no mesmo banco.
+
+| Requisições | Resultado esperado |
+|---|---|
+| 17–20 | Unidade 102 criada, Ana e Bruno pendentes e login de Ana realizado. |
+| 21–23 | Sem token retorna 401. O token de Ana retorna 403 para seu próprio pedido. A tentativa do outro síndico também deve retornar 403. |
+| 24–25 | Rejeitar Ana retorna 204; a listagem contém somente Bruno entre os pedidos da unidade 102. |
+| 26–29 | Rejeitar ou aprovar Ana novamente retorna 409; aprovar Bruno retorna 204; tentar rejeitá-lo depois retorna 409. |
+| 30–31 | Ana ainda consegue fazer login (200), mas seu token não autoriza o registro de denúncia (403). |
+
+O passo 23 é opcional no Postman: o MVP permite um condomínio por instalação. A coleção pula essa chamada quando a variável `otherManagerToken` está vazia. O teste automatizado `SecurityHttpTests.rejectingFirstApplicantLeavesTheNextEligibleForPrimary` usa dois condomínios em um H2 isolado para verificar essa permissão. Ele também consulta o banco para confirmar que Ana está rejeitada e que Bruno se tornou responsável após a aprovação.
+
+Na verificação desta etapa, `./mvnw clean verify` concluiu com **37 testes, zero falhas e zero erros**. Também foram executadas por HTTP as 30 chamadas aplicáveis da coleção contra uma instância local com H2 vazio. O cenário opcional de outro condomínio foi verificado na suíte automatizada.
+
+O convite de moradores adicionais pelo responsável pertence à K16. [Decisões da K01](k01_technical_decisions_summary.md)
