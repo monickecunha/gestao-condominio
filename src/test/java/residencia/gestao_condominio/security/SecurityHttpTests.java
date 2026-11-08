@@ -24,6 +24,7 @@ class SecurityHttpTests {
     @Value("${local.server.port}") int port;
     @Autowired ObjectMapper json;
     @Autowired UserRepository users;
+    @Autowired UnitRepository units;
     @Autowired CondominiumRepository condos;
     @Autowired AdministratorRepository admins;
     @Autowired UnitBindingRepository bindings;
@@ -166,6 +167,64 @@ class SecurityHttpTests {
             assertEquals(403, call(method, otherPath, manager, body).statusCode());
         }
     }
+    @Test void listsOnlyPendingBindingsInTheAuthenticatedManagersCondominium() throws Exception {
+        String manager = login("99988877766");
+        var empty = call("GET", "/bindings", manager, null);
+        assertEquals(200, empty.statusCode(), empty.body());
+        assertEquals(json.readTree("[]"), json.readTree(empty.body()));
+
+        var unit = units.save(new Unit(null, condos.findById(otherCondo).orElseThrow(), "B", "505"));
+        try {
+            var ana = registerApplicant("Ana", "44455566677", unit);
+            var bruno = registerApplicant("Bruno", "55566677788", unit);
+            // Deliberately give the higher ID the earlier date to test chronological ordering.
+            bruno.setRequestedAt(ana.getRequestedAt().minusSeconds(60));
+            bindings.save(bruno);
+
+            var response = call("GET", "/bindings?status=PENDING", manager, null);
+            assertEquals(200, response.statusCode(), response.body());
+            var rows = json.readTree(response.body());
+            assertEquals(2, rows.size());
+            var first = rows.get(0);
+            assertEquals(7, first.size());
+            assertEquals(bruno.getId().longValue(), first.get("bindingId").asLong());
+            assertEquals("Bruno", first.get("residentName").asString());
+            assertEquals(unit.getId().longValue(), first.get("unitId").asLong());
+            assertEquals("505", first.get("number").asString());
+            assertEquals("B", first.get("block").asString());
+            assertEquals("PENDING", first.get("status").asString());
+            assertEquals(bruno.getRequestedAt(), Instant.parse(first.get("requestedAt").asString()));
+            assertEquals(ana.getId().longValue(), rows.get(1).get("bindingId").asLong());
+            assertEquals(rows, json.readTree(call("GET", "/bindings", manager, null).body()));
+
+            ana.setStatus(BindingStatus.APPROVED);
+            bruno.setStatus(BindingStatus.REJECTED);
+            bindings.saveAll(java.util.List.of(ana, bruno));
+            assertEquals(json.readTree("[]"), json.readTree(call("GET", "/bindings", manager, null).body()));
+        } finally {
+            bindings.deleteAll(bindings.findAllByUnitCondominiumId(otherCondo));
+            units.delete(unit);
+            for (String cpf : java.util.List.of("44455566677", "55566677788")) {
+                users.findByCpf(cpf).ifPresent(users::delete);
+            }
+        }
+    }
+
+    private UnitBinding registerApplicant(String name, String cpf, Unit unit) throws Exception {
+        var request = Map.of("name", name, "cpf", cpf, "password", "123456", "unitId", unit.getId());
+        var response = call("POST", "/bindings", null, json.writeValueAsString(request));
+        assertEquals(201, response.statusCode(), response.body());
+        return bindings.findById(json.readTree(response.body()).get("bindingId").asLong()).orElseThrow();
+    }
+
+    @Test void pendingBindingListRequiresManagerAndValidFilter() throws Exception {
+        assertEquals(401, call("GET", "/bindings", null, null).statusCode());
+        assertEquals(403, call("GET", "/bindings", login("22233344455"), null).statusCode());
+        var invalid = call("GET", "/bindings?status=APPROVED", login("11122233344"), null);
+        assertEquals(400, invalid.statusCode(), invalid.body());
+        assertEquals("status", json.readTree(invalid.body()).get("validationErrors").get(0).get("field").asString());
+    }
+
     @Test void invalidExpiredAndTamperedTokens() throws Exception {
         String token = login("11122233344");
         assertEquals(401, call("GET", "/complaints", "invalid", null).statusCode());

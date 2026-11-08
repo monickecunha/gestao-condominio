@@ -3,6 +3,28 @@
 Este documento define os principais endpoints, payloads (DTOs) e retornos da API.
 **URL Base:** `/api/v1`
 
+## Teste local no Postman
+
+1. Na raiz do projeto, com JDK 25 configurado, execute `./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. No PowerShell, use `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=setup"`. Espere a aplicação iniciar e mantenha o terminal aberto. Esse perfil usa H2 vazio; reiniciar a aplicação limpa os dados.
+2. No Postman, clique em **Import** e selecione a [coleção de exemplos](gestao-condominio.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
+3. Abra as requisições na ordem numérica e clique em **Send** em cada uma, ou use o executor da coleção. O login do síndico salva o token e o ID do condomínio; o cadastro da unidade salva seu ID. As chamadas seguintes usam esses valores automaticamente.
+4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). O último conflito é esperado. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
+
+## Endpoints disponíveis nesta versão
+
+Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Content-Type: application/json`. No Postman, use **Body → raw → JSON**. Para as operações do síndico, selecione **Authorization → Bearer Token** e cole o token retornado pelo login.
+
+| Método e caminho | Autorização | Dados necessários | Sucesso |
+|---|---|---|---|
+| `POST /condominiums` | No Auth | Corpo com `condominium.name`, `manager.name`, `manager.cpf` e `manager.password`. Opcionais na seção de cadastro abaixo. | 201 com `condoId` e `managerId` |
+| `POST /auth/login` | No Auth | Corpo com `cpf` e `password`; inclua `condoId` se houver mais de um condomínio associado. | 200 com `token`, `expiresIn`, `role` e `condoId` |
+| `POST /condominiums/{condoId}/units` | Bearer do síndico | `condoId` do login na URL. Corpo com `number` obrigatório e `block` opcional. | 201 com `id`, `number` e `block` |
+| `GET /condominiums/{condoId}/units` | Bearer do síndico | `condoId` do login na URL. Sem corpo. | 200 com lista, inclusive `[]` |
+| `POST /bindings` | No Auth | Corpo com `name`, `cpf`, `password` e `unitId` (o `id` retornado ao criar a unidade). | 201 com `bindingId`, `unitId` e `status: "PENDING"` |
+| `GET /bindings` | Bearer do síndico | Sem corpo. Parâmetro opcional `status=PENDING`. | 200 com os pedidos pendentes do condomínio, inclusive `[]` |
+
+As operações de gestão de vínculos e denúncias descritas adiante como previstas servem de referência para os próximos cartões.
+
 ---
 
 ## 1. Padrão de Erros (Error Handling)
@@ -143,13 +165,33 @@ e o morador ainda não é responsável pela unidade. O login da K04 já retorna
 | Unidade inexistente | 404; a conta e o vínculo não são criados |
 | CPF já cadastrado, inclusive ao repetir o pedido | 409; senha e vínculos existentes são preservados |
 
-### `POST /bindings/{id}/approve`
+### `GET /bindings` — Pedidos pendentes do condomínio (K06)
+
+Use o token do síndico. O condomínio vem do token. A consulta sem parâmetros e a
+consulta com `?status=PENDING` retornam a mesma fila, da solicitação mais antiga
+à mais recente. Em caso de empate, o menor `bindingId` vem primeiro.
+
+```bash
+curl -i -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/v1/bindings?status=PENDING'
+```
+
+Exemplo de resposta 200:
+
+```json
+[{"bindingId":7,"residentName":"Ana","unitId":1,"number":"101","block":"","status":"PENDING","requestedAt":"2026-11-08T14:00:00Z"}]
+```
+
+Sem pendências, o resultado é `[]`. Um filtro como `status=APPROVED` retorna
+400 e indica `status` em `validationErrors`. Sem token válido, o retorno é
+401; com token de morador, 403.
+
+### Previsto — `POST /bindings/{id}/approve`
 Aprova a solicitação de vínculo de um morador a uma unidade. (Requer perfil `MANAGER`).
 *   **Response (204 No Content):** Sem corpo, apenas status de sucesso.
 
 ---
 
-## 4. Denúncias (Complaints)
+## 4. Denúncias (contratos previstos)
 
 ### `POST /complaints`
 Registra uma nova denúncia anônima. (Requer perfil `RESIDENT` com vínculo aprovado).
@@ -225,6 +267,7 @@ Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).
     }
     ```
 *   **Response (200 OK):** Status atualizado.
-### Complemento K04
+
+## Complemento K04
 
 A implementação de autenticação e a matriz de autorização estão em [K04](k04_authentication_authorization.md). O login aceita adicionalmente `condoId` opcional para selecionar um condomínio já associado (obrigatório se houver mais de um). Sem associação válida retorna 403; credenciais inválidas retornam 401. Token expirado/inválido retorna 401; perfil, condomínio ou vínculo sem permissão retorna 403. Logout consiste em descartar o token no cliente.

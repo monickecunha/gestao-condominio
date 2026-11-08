@@ -1,6 +1,8 @@
 package residencia.gestao_condominio.services;
 
+import java.util.List;
 import jakarta.persistence.EntityNotFoundException;
+import residencia.gestao_condominio.dto.PendingBindingResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,11 @@ public class BindingService {
         this.residents = residents;
         this.bindings = bindings;
         this.passwords = passwords;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PendingBindingResponse> listPending(Long condoId) {
+        return bindings.listForManager(condoId, BindingStatus.PENDING);
     }
 
     @Transactional

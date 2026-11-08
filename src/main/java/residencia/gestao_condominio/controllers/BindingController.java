@@ -1,6 +1,11 @@
 package residencia.gestao_condominio.controllers;
 
+import java.util.List;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import residencia.gestao_condominio.dto.BindingListFilter;
+import residencia.gestao_condominio.dto.PendingBindingResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import residencia.gestao_condominio.dto.BindingRequest;
@@ -14,6 +19,12 @@ public class BindingController {
 
     public BindingController(BindingService bindings) {
         this.bindings = bindings;
+    }
+
+    @GetMapping
+    public List<PendingBindingResponse> listPending(@AuthenticationPrincipal Jwt jwt,
+                                                    @Valid @ModelAttribute BindingListFilter filter) {
+        return bindings.listPending(jwt.<Number>getClaim("condoId").longValue());
     }
 
     @PostMapping

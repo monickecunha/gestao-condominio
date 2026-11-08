@@ -29,6 +29,7 @@ Um morador com vínculo pendente/rejeitado pode autenticar, mas não denunciar. 
 | POST `/api/v1/complaints/{id}/actions` | MANAGER do condomínio da denúncia |
 | GET `/api/v1/complaints/{id}/images/{imageId}` | MANAGER; imagem e denúncia devem pertencer ao condomínio |
 | GET/POST `/api/v1/condominiums/{condoId}/units` | MANAGER do condomínio indicado |
+| GET `/api/v1/bindings` | MANAGER; lista somente pedidos pendentes do condomínio do token |
 | POST `/api/v1/bindings/{id}/approve` ou `/reject` | MANAGER do condomínio da unidade vinculada |
 | Outras rotas | Negadas por padrão; ampliar explicitamente ao implementar os demais cartões |
 

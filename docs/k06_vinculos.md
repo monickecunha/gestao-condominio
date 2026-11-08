@@ -1,4 +1,4 @@
-# K06 — Cadastro do morador e solicitação de vínculo
+# K06 — Cadastro do morador e consulta de vínculos pendentes
 
 A primeira entrega da [K06](https://github.com/monickecunha/gestao-condominio/issues/6) permite que um novo morador crie sua conta e solicite vínculo com uma unidade existente. O pedido nasce `PENDING`. Com essa conta, o morador já consegue fazer login; a autorização para denunciar depende da aprovação do vínculo pelo síndico.
 
@@ -18,12 +18,32 @@ A primeira entrega da [K06](https://github.com/monickecunha/gestao-condominio/is
 | Faltam campos ou a senha excede o limite em bytes | A API devolve `400 Bad Request`. O cliente encontra os campos a corrigir em `validationErrors`. |
 | O morador pendente faz login e tenta denunciar | O login retorna `200`, token, perfil `RESIDENT` e o condomínio da unidade. Com esse token, `POST /api/v1/complaints` retorna `403`, conforme a [política de acesso da K04](k04_authentication_authorization.md). |
 
-## Evidências de teste
+## Validação do cadastro do morador
 
 No Postman, o fluxo foi validado desde o cadastro do condomínio e do síndico até a criação da unidade e os pedidos de Ana e Bruno. A comparação das duas respostas confirmou vínculos distintos para a mesma unidade. O roteiro incluiu a repetição do cadastro com outra senha, o login com a senha original, o bloqueio da denúncia pendente e o reenvio após corrigir uma unidade inexistente.
 
-Para repetir os quatro testes HTTP específicos com H2, execute `./mvnw -Dtest=BindingRegistrationHttpTests test`. Eles cobrem criação e login com vínculo pendente, unidade inexistente sem conta parcial, duplicidade com preservação da senha e validação da entrada. A suíte completa desta entrega passou com 33 testes, sem falhas ou erros. [Testes de cadastro e vínculo](../src/test/java/residencia/gestao_condominio/controllers/BindingRegistrationHttpTests.java)
+Para repetir os quatro testes HTTP específicos com H2, execute `./mvnw -Dtest=BindingRegistrationHttpTests test`. Eles cobrem criação e login com vínculo pendente, unidade inexistente sem conta parcial, duplicidade com preservação da senha e validação da entrada. Na primeira etapa, a suíte completa passou com 33 testes, sem falhas ou erros. [Testes de cadastro e vínculo](../src/test/java/residencia/gestao_condominio/controllers/BindingRegistrationHttpTests.java)
+
+## Consulta de pedidos pendentes pelo síndico
+
+O síndico envia `GET /api/v1/bindings` com o token obtido no login. O condomínio consultado vem do token. Omitir o filtro ou enviar `?status=PENDING` retorna a mesma fila, ordenada do pedido mais antigo ao mais recente. Em caso de empate na data, o menor `bindingId` aparece primeiro.
+
+Cada item informa `bindingId`, `residentName`, `unitId`, `number`, `block`, `status` e `requestedAt`. Assim, o síndico consegue distinguir duas solicitações da mesma unidade pelo identificador do vínculo. O [contrato da API](api_contract.md) contém um exemplo completo de resposta.
+
+### Validação no Postman
+
+Em 08/11/2026, a equipe validou o fluxo com H2 em memória. Para reproduzir, inicie a aplicação com o perfil `setup` e execute as requisições da [coleção do Postman](gestao-condominio.postman_collection.json) em ordem.
+
+| Requisição | Resultado observado |
+|---|---|
+| 6 — Consultar a fila antes dos pedidos | O token do síndico permitiu a consulta, que retornou `200 OK` com `[]`. |
+| 7 e 8 — Cadastrar Ana e Bruno na unidade 101 | Cada cadastro retornou `201 Created` com o mesmo `unitId`, um `bindingId` distinto e status `PENDING`. |
+| 9 — Consultar a fila após os cadastros | O síndico recebeu `200 OK` com Ana primeiro e Bruno em seguida, na ordem das solicitações. |
+
+### Cobertura automatizada da listagem
+
+Os testes HTTP com H2 verificam que a fila contém apenas pedidos pendentes do condomínio do síndico, inclusive quando existem registros de outro condomínio. Também verificam lista vazia, ordenação, exclusão de vínculos aprovados ou rejeitados e respostas de erro: `400` para filtro inválido, `401` sem autenticação e `403` com token de morador. Para repetir esses cenários, execute `./mvnw -Dtest=SecurityHttpTests test`. A suíte completa da segunda etapa passou em `./mvnw clean verify` com **35 testes, zero falhas e zero erros**. [Testes HTTP de segurança](../src/test/java/residencia/gestao_condominio/security/SecurityHttpTests.java)
 
 ## Continuidade do cartão
 
-Na próxima etapa da K06, o síndico deverá listar os pedidos do próprio condomínio e aprovar ou rejeitar cada vínculo. A aprovação deverá aplicar a regra de escolha do responsável pela unidade e os testes deverão conferir a proteção contra autoaprovação e decisões de outro condomínio. O convite de moradores adicionais pelo responsável aprovado pertence à K16. [Decisões da K01](k01_technical_decisions_summary.md)
+Na próxima etapa da K06, o síndico deverá aprovar ou rejeitar os pedidos do próprio condomínio. A aprovação deverá aplicar a regra de escolha do responsável pela unidade e os testes deverão conferir a proteção contra autoaprovação e decisões de outro condomínio. O convite de moradores adicionais pelo responsável aprovado pertence à K16. [Decisões da K01](k01_technical_decisions_summary.md)
