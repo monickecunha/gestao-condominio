@@ -9,7 +9,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.*;
 import residencia.gestao_condominio.dto.LoginRequest;
 import residencia.gestao_condominio.dto.LoginResponse;
-import residencia.gestao_condominio.exceptions.SecurityErrors;
+import residencia.gestao_condominio.security.exceptions.SecurityErrors;
 import residencia.gestao_condominio.services.AuthService;
 
 @RestController

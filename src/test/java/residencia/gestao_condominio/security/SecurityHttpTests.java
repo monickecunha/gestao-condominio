@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import residencia.gestao_condominio.entities.*;
 import residencia.gestao_condominio.repositories.*;
+import tools.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.*;
 import java.time.Instant;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SecurityHttpTests {
     @Value("${local.server.port}") int port;
+    @Autowired ObjectMapper json;
     @Autowired UserRepository users;
     @Autowired CondominiumRepository condos;
     @Autowired AdministratorRepository admins;
@@ -37,7 +39,7 @@ class SecurityHttpTests {
     @RestController
     static class ProbeController {
         @RequestMapping({"/api/v1/complaints", "/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status",
-            "/api/v1/condominiums/{id}/units", "/api/v1/bindings/{id}/approve", "/api/v1/complaints/protocol/{protocol}"})
+            "/api/v1/bindings/{id}/approve", "/api/v1/complaints/protocol/{protocol}"})
         Map<String, String> probe() { return Map.of("result", "ok"); }
     }
     @BeforeAll void fixture() {
@@ -103,13 +105,66 @@ class SecurityHttpTests {
         Long condo = ((Number) decoder.decode(manager).getClaim("condoId")).longValue();
         Long complaint = complaints.findAllByCondominiumId(condo).getFirst().getId();
         Long binding = bindings.findAllByUnitCondominiumId(condo).getFirst().getId();
-        assertEquals(200, call("POST", "/condominiums/" + condo + "/units", manager, "{}").statusCode());
+        assertEquals(201, call("POST", "/condominiums/" + condo + "/units", manager, "{\"number\":\"303\"}").statusCode());
         assertEquals(403, call("POST", "/condominiums/" + otherCondo + "/units", manager, "{}").statusCode());
         assertEquals(200, call("GET", "/complaints/" + complaint, manager, null).statusCode());
         assertEquals(403, call("GET", "/complaints/" + complaint, other, null).statusCode());
         assertEquals(403, call("PATCH", "/complaints/" + complaint + "/status", other, "{}").statusCode());
         assertEquals(403, call("POST", "/bindings/" + binding + "/approve", other, "{}").statusCode());
         assertEquals(403, call("POST", "/auth/login", null, "{\"cpf\":\"22233344455\",\"password\":\"123456\",\"condoId\":" + otherCondo + "}").statusCode());
+    }
+    @Test void managesUnitsWithinOwnCondominium() throws Exception {
+        String manager = login("99988877766");
+        String path = "/condominiums/" + otherCondo + "/units";
+        var empty = call("GET", path, manager, null);
+        assertEquals(200, empty.statusCode());
+        assertEquals(json.readTree("[]"), json.readTree(empty.body()));
+
+        String unit = "{\"number\":\"101\"}";
+        var created = call("POST", path, manager, unit);
+        assertEquals(201, created.statusCode(), created.body());
+        var first = json.readTree(created.body());
+        assertTrue(first.get("id").asLong() > 0);
+        assertEquals("101", first.get("number").asString());
+        assertEquals("", first.get("block").asString());
+
+        var duplicate = call("POST", path, manager, "{\"number\":\"101\",\"block\":\"\"}");
+        assertEquals(409, duplicate.statusCode());
+        assertEquals(409, json.readTree(duplicate.body()).get("status").asInt());
+
+        var second = call("POST", path, manager, "{\"number\":\"101\",\"block\":\"B\"}");
+        assertEquals(201, second.statusCode());
+        var listing = call("GET", path, manager, null);
+        assertEquals(200, listing.statusCode());
+        var rows = json.readTree(listing.body());
+        assertEquals(2, rows.size());
+        assertEquals(first, rows.get(0));
+        assertEquals(json.readTree(second.body()), rows.get(1));
+    }
+
+    @Test void validatesUnitFields() throws Exception {
+        String manager = login("11122233344");
+        String path = "/condominiums/" + decoder.decode(manager).getClaim("condoId") + "/units";
+        var invalid = call("POST", path, manager, "{}");
+        assertEquals(400, invalid.statusCode());
+        assertEquals("number", json.readTree(invalid.body()).get("validationErrors").get(0).get("field").asString());
+        assertEquals(400, call("POST", path, manager, "{\"number\":\"  \"}").statusCode());
+        String tooLong = "1".repeat(21);
+        assertEquals(400, call("POST", path, manager, json.writeValueAsString(Map.of("number", tooLong))).statusCode());
+        assertEquals(400, call("POST", path, manager, json.writeValueAsString(Map.of("number", "101", "block", tooLong))).statusCode());
+    }
+
+    @Test void protectsBothUnitOperations() throws Exception {
+        String manager = login("11122233344");
+        String resident = login("22233344455");
+        String ownPath = "/condominiums/" + decoder.decode(manager).getClaim("condoId") + "/units";
+        String otherPath = "/condominiums/" + otherCondo + "/units";
+        for (String method : java.util.List.of("GET", "POST")) {
+            String body = method.equals("POST") ? "{\"number\":\"701\"}" : null;
+            assertEquals(401, call(method, ownPath, null, body).statusCode());
+            assertEquals(403, call(method, ownPath, resident, body).statusCode());
+            assertEquals(403, call(method, otherPath, manager, body).statusCode());
+        }
     }
     @Test void invalidExpiredAndTamperedTokens() throws Exception {
         String token = login("11122233344");

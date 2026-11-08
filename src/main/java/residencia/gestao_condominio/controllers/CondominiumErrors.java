@@ -7,14 +7,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
 import java.util.List;
 
-@RestControllerAdvice(assignableTypes = CondominiumController.class)
-public class CondominiumRegistrationErrors {
+@RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class})
+public class CondominiumErrors {
     record FieldError(String field, String message) {}
     record ApiError(Instant timestamp, int status, String error, String message, String path,
                     List<FieldError> validationErrors) {}
@@ -33,10 +34,13 @@ public class CondominiumRegistrationErrors {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    ResponseEntity<ApiError> persistenceError(DataIntegrityViolationException failure, HttpServletRequest request) {
+    ResponseEntity<ApiError> persistenceError(DataIntegrityViolationException failure, HttpServletRequest request, HandlerMethod handler) {
         if (failure.getCause() instanceof ConstraintViolationException violation
                 && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE) {
-            return response(HttpStatus.CONFLICT, "Condominium or manager already registered", request, List.of());
+            String message = handler.getBeanType() == UnitController.class
+                    ? "Unit already registered in this block"
+                    : "Condominium or manager already registered";
+            return response(HttpStatus.CONFLICT, message, request, List.of());
         }
         throw failure;
     }

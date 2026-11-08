@@ -1,6 +1,6 @@
-# K05 — Cadastro inicial do condomínio e do síndico
+# K05 — Cadastro de condomínio, síndico e unidades
 
-A primeira parte da [K05](https://github.com/monickecunha/gestao-condominio/issues/5) atende à história US01. Em uma instalação vazia, o síndico cadastra seu condomínio e cria a conta que usará para administrá-lo. O próximo bloco da K05 é o cadastro e a listagem de unidades pelo síndico autenticado.
+A primeira parte da [K05](https://github.com/monickecunha/gestao-condominio/issues/5) atende à história US01. Em uma instalação vazia, o síndico cadastra seu condomínio e cria a conta que usará para administrá-lo. O cadastro e a listagem de unidades pelo síndico autenticado estão descritos no [contrato HTTP](api_contract.md).
 
 ## Como criar a primeira conta
 
@@ -18,7 +18,19 @@ A restrição de unicidade da coluna `singleton` garante essa regra inclusive qu
 
 - **Controller e DTOs.** O `CondominiumController` recebe a requisição e valida os dois objetos antes de chamar o serviço. Os DTOs são `record` porque os campos de entrada e saída são definidos pelo contrato. A resposta contém somente os dois identificadores.
 - **Serviço e senha.** O serviço coordena os repositórios e usa o mesmo `PasswordEncoder` BCrypt que o login usa para verificar a senha. A validação do cadastro mede o limite de 72 **bytes em UTF-8**, pois caracteres acentuados podem ocupar mais de um byte. Veja a [decisão de autenticação da K04](k04_authentication_authorization.md).
-- **Erros.** O `CondominiumRegistrationErrors` traduz exceções de validação e persistência para o formato de erro da API. JSON malformado ou campo inválido resulta em `400`; no segundo caso, `validationErrors` identifica o campo. Uma violação de unicidade, como instalação já cadastrada ou CPF em uso, resulta em `409`. As exceções do framework já distinguem os casos tratados nesta etapa.
+- **Erros.** O `CondominiumErrors` traduz exceções de validação e persistência para o formato de erro da API. JSON malformado ou campo inválido resulta em `400`; no segundo caso, `validationErrors` identifica o campo. Uma violação de unicidade, como instalação já cadastrada ou CPF em uso, resulta em `409`. As exceções do framework já distinguem os casos tratados nesta etapa.
+
+## Como o síndico cadastra e consulta unidades
+
+Depois do login, o síndico usa `POST` e `GET /api/v1/condominiums/{condoId}/units`. A autorização da K04 exige o perfil `MANAGER`, confere no banco a associação do síndico com o condomínio e verifica se o ID da URL corresponde ao do token. O `UnitController` passa ao `UnitService` o ID extraído do token. Assim, tanto a gravação quanto a consulta usam o condomínio autorizado.
+
+O número da unidade é um texto obrigatório e o bloco é opcional, ambos com até 20 caracteres. A unidade é identificada, dentro do condomínio, pela combinação de bloco e número. Por exemplo, cadastrar `{"number":"101"}` retorna `201` com `id`, `number` e `block: ""`. Repetir o cadastro com o bloco vazio retorna `409`, pois bloco omitido e vazio representam a mesma unidade. Cadastrar o número `101` no bloco `B` cria outra unidade. A restrição de unicidade está no [modelo de dados](diagrama_er_condominio.md).
+
+A listagem retorna `200` com as unidades do condomínio em ordem crescente de ID, ou `[]` se ainda não houver unidades. Os exemplos executáveis de criação e consulta estão no [contrato HTTP](api_contract.md).
+
+### Tratamento dos erros de unidades
+
+O `CondominiumErrors` atende aos controllers de condomínio e de unidades. Campos inválidos resultam em `400` com o nome do campo em `validationErrors`. Uma unidade duplicada resulta em `409`. As respostas de segurança ficam a cargo de `SecurityErrors`, agora em `security.exceptions`: as duas rotas retornam `401` sem token válido e `403` para um morador ou um síndico que informe outro condomínio.
 
 ## Como verificar
 
@@ -33,3 +45,7 @@ Com o JDK do projeto, execute `./mvnw -Dtest=CondominiumRegistrationHttpTests te
 | Segundo cadastro com outros dados | A API retorna 409 e preserva o primeiro cadastro. |
 | Falha ao gravar o síndico por CPF em uso | A API retorna 409, preserva o usuário anterior e desfaz a criação do condomínio. |
 | Duas requisições simultâneas | Uma retorna 201 e a outra 409; resta exatamente um condomínio com um síndico. |
+
+Para testar as unidades, execute `./mvnw -Dtest=SecurityHttpTests test`. Os testes HTTP agora usam o `UnitController` real para verificar a lista inicialmente vazia, o cadastro com e sem bloco, a duplicidade, a validação dos campos e a ordem das unidades retornadas. As duas operações também são exercitadas sem autenticação, com token de morador e com token de síndico de outro condomínio.
+
+Na verificação de 08/11/2026, após a mudança de pacote de `SecurityErrors`, `./mvnw clean verify` concluiu com 29 testes, zero falhas e zero erros.

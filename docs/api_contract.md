@@ -92,16 +92,31 @@ Para testar com H2 **vazio**, inicie a aplicação com o perfil `setup`:
    da seção 1. Para erros de campos, `validationErrors` indica o caminho, por
    exemplo `manager.password`, e a mensagem de validação.
 
-### `POST /condominiums/{condoId}/units`
-Cria uma nova unidade no condomínio. (Requer perfil `MANAGER`).
-*   **Request Body:**
-    ```json
-    {
-      "block": "A",
-      "number": "101"
-    }
-    ```
-*   **Response (201 Created):** Retorna os dados da unidade criada com seu `id`.
+### Unidades — `/condominiums/{condoId}/units` (K05)
+
+O síndico envia o token no cabeçalho `Authorization: Bearer <token>`. Use na
+URL o `condoId` devolvido no login. As duas operações retornam 401 sem token
+válido e 403 para um morador ou para um síndico que informe outro condomínio.
+
+| Método | Requisição | Resposta |
+|---|---|---|
+| POST | `{"number":"101"}` ou `{"number":"101","block":"A"}` | 201 com a unidade criada, por exemplo `{"id":1,"number":"101","block":""}`. |
+| GET | Sem corpo | 200 com as unidades do condomínio em ordem de ID. Para um condomínio sem unidades, retorna `[]`. |
+
+O número é texto obrigatório e o bloco é opcional, ambos com até 20 caracteres.
+Ao omitir o bloco, a API devolve `""`. Repetir número e bloco no mesmo condomínio
+retorna 409; o mesmo número pode existir em blocos diferentes. Dados inválidos
+retornam 400 com o envelope da seção 1.
+
+Para reproduzir depois do login, defina `CONDO_ID` e `TOKEN` com os valores da resposta:
+
+```bash
+curl -i -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/api/v1/condominiums/$CONDO_ID/units"
+
+curl -i -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"number":"101"}' "http://localhost:8080/api/v1/condominiums/$CONDO_ID/units"
+```
 
 ### `POST /bindings/{id}/approve`
 Aprova a solicitação de vínculo de um morador a uma unidade. (Requer perfil `MANAGER`).
