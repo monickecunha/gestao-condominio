@@ -45,7 +45,7 @@ public class TestConfig implements CommandLineRunner {
         Unit u2 = new Unit(null, c1, "Bloco B", "202");
         unitRepository.saveAll(Arrays.asList(u1, u2));
 
-        Administrator admin = new Administrator(null, "Carlos Silva", "11122233344", "51977776666", "123456", c1);
+        Administrator admin = new Administrator(null, "Carlos Silva", "q", "51977776666", "123456", c1);
         admin.setPassword(passwordEncoder.encode(admin.getPassword()));
         administratorRepository.save(admin);
 
