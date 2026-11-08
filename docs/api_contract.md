@@ -118,6 +118,31 @@ curl -i -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"number":"101"}' "http://localhost:8080/api/v1/condominiums/$CONDO_ID/units"
 ```
 
+### `POST /bindings` — Primeiro cadastro do morador (K06)
+
+Rota pública para uma **nova conta**. O campo `unitId` é o ID da unidade
+criada pelo síndico na K05. O condomínio vem dessa unidade. Nome (até 150
+caracteres), CPF (até 14), senha (até 72 bytes em UTF-8) e ID positivo são
+obrigatórios. Use o mesmo formato de CPF no login.
+
+```bash
+curl -i -H 'Content-Type: application/json' \
+  -d '{"name":"Ana","cpf":"44455566677","password":"teste-morador","unitId":1}' \
+  http://localhost:8080/api/v1/bindings
+```
+
+Substitua `1` pelo ID real. A API grava a conta e o vínculo na mesma transação.
+No sucesso, responde `201 Created`, por exemplo
+`{"bindingId":7,"unitId":1,"status":"PENDING"}`. O vínculo começa pendente
+e o morador ainda não é responsável pela unidade. O login da K04 já retorna
+`RESIDENT` e o condomínio da unidade; registrar denúncia exige vínculo aprovado.
+
+| Situação | Resposta |
+|---|---|
+| Campo obrigatório ausente ou inválido | 400 no envelope de validação |
+| Unidade inexistente | 404; a conta e o vínculo não são criados |
+| CPF já cadastrado, inclusive ao repetir o pedido | 409; senha e vínculos existentes são preservados |
+
 ### `POST /bindings/{id}/approve`
 Aprova a solicitação de vínculo de um morador a uma unidade. (Requer perfil `MANAGER`).
 *   **Response (204 No Content):** Sem corpo, apenas status de sucesso.

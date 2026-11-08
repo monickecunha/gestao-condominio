@@ -1,5 +1,6 @@
 package residencia.gestao_condominio.controllers;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.List;
 
-@RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class})
+@RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class})
 public class CondominiumErrors {
     record FieldError(String field, String message) {}
     record ApiError(Instant timestamp, int status, String error, String message, String path,
@@ -33,10 +34,18 @@ public class CondominiumErrors {
         return response(HttpStatus.BAD_REQUEST, "Invalid request body", request, List.of());
     }
 
+    @ExceptionHandler(EntityNotFoundException.class)
+    ResponseEntity<ApiError> notFound(HttpServletRequest request) {
+        return response(HttpStatus.NOT_FOUND, "Resource not found", request, List.of());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ApiError> persistenceError(DataIntegrityViolationException failure, HttpServletRequest request, HandlerMethod handler) {
         if (failure.getCause() instanceof ConstraintViolationException violation
                 && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE) {
+            if (handler.getBeanType() == BindingController.class) {
+                return response(HttpStatus.CONFLICT, "Registration already exists", request, List.of());
+            }
             String message = handler.getBeanType() == UnitController.class
                     ? "Unit already registered in this block"
                     : "Condominium or manager already registered";
