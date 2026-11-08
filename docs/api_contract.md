@@ -51,6 +51,47 @@ Autentica um usuário (Síndico ou Morador) e retorna o token JWT.
 
 ## 3. Gestão de Condomínio e Unidades (Manager)
 
+### `POST /condominiums` — Cadastro inicial (K05)
+
+Cadastra o único condomínio da instalação e seu síndico em uma transação. Esta rota
+aceita requisições sem token para permitir a criação da primeira conta. No ambiente
+de demonstração, faça o cadastro localmente antes de expor a instalação a outros clientes.
+
+Campos obrigatórios: `condominium.name`, `manager.name` (até 150 caracteres cada),
+`manager.cpf` (até 14 caracteres, no formato que será usado no login) e
+`manager.password` (até 72 bytes em UTF-8). Campos opcionais: `condominium.cnpj`
+(até 18 caracteres), `condominium.address` (255) e `phone` em ambos os objetos (20).
+
+Para testar com H2 **vazio**, inicie a aplicação com o perfil `setup`:
+`./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. O perfil padrão
+`test` já contém um condomínio. Os dados do H2 em memória duram até encerrar a aplicação.
+
+1. Cadastrar em um terminal:
+
+   ```bash
+   curl -i http://localhost:8080/api/v1/condominiums \
+     -H 'Content-Type: application/json' \
+     -d '{"condominium":{"name":"Residencial Parque"},"manager":{"name":"Maria","cpf":"12345678901","password":"teste-local"}}'
+   ```
+
+   **201 Created**: `{"condoId":1,"managerId":1}` (IDs ilustrativos).
+
+2. Fazer login com o síndico recém-criado:
+
+   ```bash
+   curl -i http://localhost:8080/api/v1/auth/login \
+     -H 'Content-Type: application/json' \
+     -d '{"cpf":"12345678901","password":"teste-local"}'
+   ```
+
+   **200 OK**: a resposta traz o token, o perfil `MANAGER` e o mesmo `condoId`.
+
+3. Repetir o primeiro comando retorna **409 Conflict**. CPF já cadastrado
+   também resulta em 409. Em caso de falha, nenhum registro parcial é salvo.
+   Campos inválidos e JSON malformado retornam **400 Bad Request** no envelope
+   da seção 1. Para erros de campos, `validationErrors` indica o caminho, por
+   exemplo `manager.password`, e a mensagem de validação.
+
 ### `POST /condominiums/{condoId}/units`
 Cria uma nova unidade no condomínio. (Requer perfil `MANAGER`).
 *   **Request Body:**

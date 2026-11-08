@@ -43,7 +43,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .requestCache(cache -> cache.disable())
             .authorizeHttpRequests(requests -> requests
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/login", "/api/v1/condominiums").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/complaints/protocol/*").permitAll()
                 .anyRequest().access(authorization))
             .exceptionHandling(errors -> errors

@@ -19,6 +19,7 @@ Um morador com vínculo pendente/rejeitado pode autenticar, mas não denunciar. 
 | Rota | Acesso |
 |---|---|
 | POST `/api/v1/auth/login` | Público |
+| POST `/api/v1/condominiums` | Cadastro inicial público (K05); instalação já cadastrada retorna 409 |
 | GET `/api/v1/complaints/protocol/{protocol}` | Público; a implementação K08 deve retornar apenas campos públicos |
 | POST `/api/v1/complaints` | RESIDENT com vínculo APPROVED atual no condomínio do token |
 | GET `/api/v1/complaints` | MANAGER; a implementação deve consultar `findAllByCondominiumId` usando o condomínio do token |
