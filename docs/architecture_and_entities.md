@@ -9,6 +9,8 @@ O projeto seguirá o padrão arquitetural em camadas, refletindo o modelo MVC ad
 *   `resources` (ou `controllers`): Controladores REST (endpoints) que recebem requisições HTTP e retornam respostas JSON.
 *   `dto` (Data Transfer Objects): Classes auxiliares para transitar dados entre a API e o cliente, garantindo que as `entities` não sejam expostas diretamente.
 
+Exceções próprias e tratadores de erro ficam no subpacote `exceptions` da camada responsável. Por exemplo, `services.exceptions` contém conflitos de regras de negócio, `controllers.exceptions` converte exceções em respostas HTTP e `security.exceptions` reúne o suporte às respostas de autenticação e autorização.
+
 ## 2. Padrão Estrutural das Entidades JPA
 
 Para manter a consistência com o banco de dados (H2 agora e PostgreSQL no futuro), todas as entidades devem seguir estritamente as regras abaixo:

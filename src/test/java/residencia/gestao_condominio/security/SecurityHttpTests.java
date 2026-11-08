@@ -40,7 +40,7 @@ class SecurityHttpTests {
     @RestController
     static class ProbeController {
         @RequestMapping({"/api/v1/complaints", "/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status",
-            "/api/v1/bindings/{id}/approve", "/api/v1/complaints/protocol/{protocol}"})
+            "/api/v1/complaints/protocol/{protocol}"})
         Map<String, String> probe() { return Map.of("result", "ok"); }
     }
     @BeforeAll void fixture() {
@@ -201,6 +201,52 @@ class SecurityHttpTests {
             bruno.setStatus(BindingStatus.REJECTED);
             bindings.saveAll(java.util.List.of(ana, bruno));
             assertEquals(json.readTree("[]"), json.readTree(call("GET", "/bindings", manager, null).body()));
+        } finally {
+            bindings.deleteAll(bindings.findAllByUnitCondominiumId(otherCondo));
+            units.delete(unit);
+            for (String cpf : java.util.List.of("44455566677", "55566677788")) {
+                users.findByCpf(cpf).ifPresent(users::delete);
+            }
+        }
+    }
+
+    @Test void approvesOldestApplicantAsPrimaryAndPreservesExistingPrimary() throws Exception {
+        String manager = login("99988877766");
+        var unit = units.save(new Unit(null, condos.findById(otherCondo).orElseThrow(), "B", "506"));
+        try {
+            var ana = registerApplicant("Ana", "44455566677", unit);
+            var bruno = registerApplicant("Bruno", "55566677788", unit);
+            String anaPath = "/bindings/" + ana.getId() + "/approve";
+            String brunoPath = "/bindings/" + bruno.getId() + "/approve";
+            String resident = login("44455566677");
+
+            assertEquals(401, call("POST", anaPath, null, null).statusCode());
+            assertEquals(403, call("POST", anaPath, resident, null).statusCode());
+            assertEquals(403, call("POST", anaPath, login("11122233344"), null).statusCode());
+            assertEquals(403, call("POST", "/bindings/999999/approve", manager, null).statusCode());
+            var outOfOrder = call("POST", brunoPath, manager, null);
+            assertEquals(409, outOfOrder.statusCode(), outOfOrder.body());
+            assertEquals(2, json.readTree(call("GET", "/bindings", manager, null).body()).size());
+
+            // Two concurrent decisions on the same pending request can succeed only once.
+            var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1" + anaPath))
+                    .header("Authorization", "Bearer " + manager).POST(HttpRequest.BodyPublishers.noBody()).build();
+            var first = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+            var second = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+            var responses = java.util.List.of(first.join(), second.join());
+            assertEquals(java.util.List.of(204, 409), responses.stream().map(HttpResponse::statusCode).sorted().toList());
+            assertTrue(responses.stream().filter(r -> r.statusCode() == 204).allMatch(r -> r.body().isEmpty()));
+            assertTrue(bindings.findById(ana.getId()).orElseThrow().isPrimaryResident());
+            var remaining = json.readTree(call("GET", "/bindings", manager, null).body());
+            assertEquals(1, remaining.size());
+            assertEquals(bruno.getId().longValue(), remaining.get(0).get("bindingId").asLong());
+            assertEquals(200, call("POST", "/complaints", resident, "{}").statusCode());
+
+            assertEquals(204, call("POST", brunoPath, manager, null).statusCode());
+            var additional = bindings.findById(bruno.getId()).orElseThrow();
+            assertEquals(BindingStatus.APPROVED, additional.getStatus());
+            assertFalse(additional.isPrimaryResident());
+            assertTrue(bindings.findById(ana.getId()).orElseThrow().isPrimaryResident());
         } finally {
             bindings.deleteAll(bindings.findAllByUnitCondominiumId(otherCondo));
             units.delete(unit);

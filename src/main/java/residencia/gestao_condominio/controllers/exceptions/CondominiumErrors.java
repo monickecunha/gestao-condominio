@@ -1,4 +1,4 @@
-package residencia.gestao_condominio.controllers;
+package residencia.gestao_condominio.controllers.exceptions;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +11,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import residencia.gestao_condominio.controllers.BindingController;
+import residencia.gestao_condominio.controllers.CondominiumController;
+import residencia.gestao_condominio.controllers.UnitController;
+import residencia.gestao_condominio.services.exceptions.BindingConflictException;
 
 import java.time.Instant;
 import java.util.List;
@@ -37,6 +42,11 @@ public class CondominiumErrors {
     @ExceptionHandler(EntityNotFoundException.class)
     ResponseEntity<ApiError> notFound(HttpServletRequest request) {
         return response(HttpStatus.NOT_FOUND, "Resource not found", request, List.of());
+    }
+
+    @ExceptionHandler(BindingConflictException.class)
+    ResponseEntity<ApiError> bindingConflict(BindingConflictException failure, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, failure.getMessage(), request, List.of());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

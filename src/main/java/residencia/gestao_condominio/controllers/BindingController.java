@@ -27,6 +27,12 @@ public class BindingController {
         return bindings.listPending(jwt.<Number>getClaim("condoId").longValue());
     }
 
+    @PostMapping("/{bindingId}/approve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void approve(@PathVariable Long bindingId, @AuthenticationPrincipal Jwt jwt) {
+        bindings.approve(jwt.<Number>getClaim("condoId").longValue(), bindingId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BindingResponse register(@Valid @RequestBody BindingRequest request) {

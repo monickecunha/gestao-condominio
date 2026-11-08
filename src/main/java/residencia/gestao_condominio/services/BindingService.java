@@ -1,8 +1,10 @@
 package residencia.gestao_condominio.services;
 
 import java.util.List;
+import residencia.gestao_condominio.services.exceptions.BindingConflictException;
 import jakarta.persistence.EntityNotFoundException;
 import residencia.gestao_condominio.dto.PendingBindingResponse;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +38,29 @@ public class BindingService {
     }
 
     @Transactional
+    public void approve(Long condoId, Long bindingId) {
+        // Serialize decisions on the same unit before reading its queue or primary resident.
+        var unit = units.lockForApproval(condoId, bindingId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+        var binding = bindings.findByIdAndUnitCondominiumId(bindingId, condoId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+        if (binding.getStatus() != BindingStatus.PENDING) {
+            throw new BindingConflictException("Only pending bindings can be approved");
+        }
+        if (!bindings.existsByUnitIdAndPrimarySlotIsNotNull(unit.getId())) {
+            var first = bindings.findFirstByUnitIdAndStatusOrderByRequestedAtAscIdAsc(unit.getId(), BindingStatus.PENDING)
+                    .orElseThrow();
+            if (!first.getId().equals(bindingId)) {
+                throw new BindingConflictException("Decide the earliest pending request for this unit first");
+            }
+            binding.setPrimaryResident(true);
+        }
+        binding.setStatus(BindingStatus.APPROVED);
+    }
+
+    @Transactional
     public BindingResponse register(BindingRequest request) {
-        var unit = units.findById(request.unitId())
+        var unit = units.lockForRegistration(request.unitId())
                 .orElseThrow(() -> new EntityNotFoundException("Unit not found"));
         var resident = residents.save(new Resident(null, request.name(), request.cpf(), null,
                 passwords.encode(request.password())));

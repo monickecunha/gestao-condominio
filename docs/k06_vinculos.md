@@ -1,4 +1,4 @@
-# K06 — Cadastro do morador e consulta de vínculos pendentes
+# K06 — Cadastro, consulta e aprovação de vínculos
 
 A primeira entrega da [K06](https://github.com/monickecunha/gestao-condominio/issues/6) permite que um novo morador crie sua conta e solicite vínculo com uma unidade existente. O pedido nasce `PENDING`. Com essa conta, o morador já consegue fazer login; a autorização para denunciar depende da aprovação do vínculo pelo síndico.
 
@@ -44,6 +44,30 @@ Em 08/11/2026, a equipe validou o fluxo com H2 em memória. Para reproduzir, ini
 
 Os testes HTTP com H2 verificam que a fila contém apenas pedidos pendentes do condomínio do síndico, inclusive quando existem registros de outro condomínio. Também verificam lista vazia, ordenação, exclusão de vínculos aprovados ou rejeitados e respostas de erro: `400` para filtro inválido, `401` sem autenticação e `403` com token de morador. Para repetir esses cenários, execute `./mvnw -Dtest=SecurityHttpTests test`. A suíte completa da segunda etapa passou em `./mvnw clean verify` com **35 testes, zero falhas e zero erros**. [Testes HTTP de segurança](../src/test/java/residencia/gestao_condominio/security/SecurityHttpTests.java)
 
+## Aprovação de um pedido
+
+O síndico escolhe um `bindingId` da fila do próprio condomínio e envia
+`POST /api/v1/bindings/{bindingId}/approve` com seu token, sem corpo. A aprovação
+muda o vínculo de `PENDING` para `APPROVED` e retorna `204 No Content`. A K04
+consulta as permissões atuais no banco, então o morador pode usar o token que
+já tinha para operações que exigem vínculo aprovado.
+
+Se a unidade ainda não tem responsável, a prioridade é do primeiro pedido
+pendente da **unidade**, seguindo a mesma ordem da listagem. Por exemplo, se
+Ana pediu antes de Bruno, tentar aprovar Bruno primeiro retorna `409` e ambos
+continuam pendentes. Ao aprovar Ana, ela se torna responsável e somente Bruno
+permanece na fila. Aprovar outro vínculo depois disso preserva a indicação de Ana.
+
+O serviço decide e grava a mudança na mesma transação, com bloqueio da unidade.
+Isso permite serializar cadastros e aprovações concorrentes naquela unidade.
+Dois envios simultâneos para aprovar o mesmo pedido resultam em uma aprovação e
+um conflito. O morador não pode se autoaprovar; o síndico de outro condomínio
+recebe a mesma negativa que receberia para um ID inexistente.
+
+Para validar manualmente, importe a [coleção atualizada](gestao-condominio.postman_collection.json)
+e execute em ordem com o banco vazio. As requisições 7 e 8 guardam os IDs de Ana e Bruno;
+as requisições 12 a 16 testam permissões, prioridade, aprovação e a fila resultante.
+
 ## Continuidade do cartão
 
-Na próxima etapa da K06, o síndico deverá aprovar ou rejeitar os pedidos do próprio condomínio. A aprovação deverá aplicar a regra de escolha do responsável pela unidade e os testes deverão conferir a proteção contra autoaprovação e decisões de outro condomínio. O convite de moradores adicionais pelo responsável aprovado pertence à K16. [Decisões da K01](k01_technical_decisions_summary.md)
+O próximo bloco é a rejeição de um pedido pelo síndico. Quando um pedido sair da fila por rejeição, o próximo pendente poderá ser considerado para responsável de uma unidade ainda sem responsável. O convite de moradores adicionais permanece na K16. [Decisões da K01](k01_technical_decisions_summary.md)

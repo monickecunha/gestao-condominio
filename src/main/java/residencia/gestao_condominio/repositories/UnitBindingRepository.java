@@ -8,6 +8,9 @@ import residencia.gestao_condominio.entities.BindingStatus;
 import residencia.gestao_condominio.entities.UnitBinding;
 
 public interface UnitBindingRepository extends JpaRepository<UnitBinding, Long> {
+    boolean existsByUnitIdAndPrimarySlotIsNotNull(Long unitId);
+    java.util.Optional<UnitBinding> findFirstByUnitIdAndStatusOrderByRequestedAtAscIdAsc(Long unitId, BindingStatus status);
+
     @Query("""
             select new residencia.gestao_condominio.dto.PendingBindingResponse(
                 b.id, b.resident.name, u.id, u.number, u.block, b.status, b.requestedAt)
