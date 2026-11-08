@@ -8,7 +8,7 @@ Este documento define os principais endpoints, payloads (DTOs) e retornos da API
 1. Na raiz do projeto, com JDK 25 configurado, execute `./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. No PowerShell, use `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=setup"`. Espere a aplicação iniciar e mantenha o terminal aberto. Esse perfil usa H2 vazio; reiniciar a aplicação limpa os dados.
 2. No Postman, clique em **Import** e selecione a [coleção de exemplos](gestao-condominio.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
 3. Abra as requisições na ordem numérica e clique em **Send** em cada uma, ou use o executor da coleção. O login do síndico salva o token e o ID do condomínio; o cadastro da unidade salva seu ID. As chamadas seguintes usam esses valores automaticamente.
-4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
+4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. As requisições 32 a 37 testam o registro de denúncias com o token de Ana da unidade 101, já aprovada na requisição 14. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
 
 ## Endpoints disponíveis nesta versão
 
@@ -24,6 +24,7 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | `GET /bindings` | Bearer do síndico | Sem corpo. Parâmetro opcional `status=PENDING`. | 200 com os pedidos pendentes do condomínio, inclusive `[]` |
 | `POST /bindings/{bindingId}/approve` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
+| `POST /complaints` | Bearer de morador aprovado | Corpo com `category` e `description`; `location` opcional. | 201 com protocolo e mensagem |
 
 As operações de gestão de vínculos e denúncias descritas adiante como previstas servem de referência para os próximos cartões.
 
@@ -228,10 +229,13 @@ curl -i -X POST -H "Authorization: Bearer $TOKEN" \
 
 ---
 
-## 4. Denúncias (contratos previstos)
+## 4. Denúncias
 
 ### `POST /complaints`
-Registra uma nova denúncia anônima. (Requer perfil `RESIDENT` com vínculo aprovado).
+Registra uma denúncia no condomínio informado pelo token. Requer morador com vínculo aprovado no momento do envio. A descrição é obrigatória e deve conter texto; o local é opcional (até 255 caracteres). Categorias aceitas: `NOISE`, `SECURITY`, `COMMON_AREA_MISUSE`, `GARBAGE_VIOLATION`, `RULES_VIOLATION` e `OTHER`.
+
+A denúncia começa em `RECEIVED`. O registro guarda o condomínio e os dados da ocorrência, sem identificador do morador, unidade ou vínculo. A resposta contém um protocolo UUID v4 único e uma mensagem. Guarde o protocolo para o acompanhamento previsto na K08. Erros de entrada retornam 400, token ausente ou inválido retorna 401 e perfil ou vínculo sem permissão retorna 403.
+
 *   **Request Body:**
     ```json
     {
@@ -240,7 +244,7 @@ Registra uma nova denúncia anônima. (Requer perfil `RESIDENT` com vínculo apr
       "location": "Corredor do 5º andar, bloco B"
     }
     ```
-*   **Response (201 Created):** Retorna apenas o protocolo gerado.
+*   **Response (201 Created):** Retorna o recibo após a gravação.
     ```json
     {
       "protocol": "550e8400-e29b-41d4-a716-446655440000",
@@ -248,7 +252,7 @@ Registra uma nova denúncia anônima. (Requer perfil `RESIDENT` com vínculo apr
     }
     ```
 
-### `GET /complaints/protocol/{protocol}`
+### Previsto — `GET /complaints/protocol/{protocol}`
 Consulta pública do andamento da denúncia pelo protocolo (Não requer autenticação).
 *   **Response (200 OK):** *Apenas campos públicos.*
     ```json
@@ -269,7 +273,7 @@ Consulta pública do andamento da denúncia pelo protocolo (Não requer autentic
     }
     ```
 
-### `GET /complaints/{id}`
+### Previsto — `GET /complaints/{id}`
 Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
 *   **Response (200 OK):** *Inclui dados completos.*
     ```json
@@ -294,7 +298,7 @@ Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
     }
     ```
 
-### `PATCH /complaints/{id}/status`
+### Previsto — `PATCH /complaints/{id}/status`
 Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).
 *   **Request Body:**
     ```json

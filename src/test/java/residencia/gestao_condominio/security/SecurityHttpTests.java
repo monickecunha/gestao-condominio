@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import(SecurityHttpTests.ProbeController.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SecurityHttpTests {
+    private static final String VALID_COMPLAINT = """
+            {"category":"NOISE","description":"Barulho após as 22h."}
+            """;
     @Value("${local.server.port}") int port;
     @Autowired ObjectMapper json;
     @Autowired UserRepository users;
@@ -39,7 +42,10 @@ class SecurityHttpTests {
     // Test-only handlers exercise the real filter chain without implementing K05–K10.
     @RestController
     static class ProbeController {
-        @RequestMapping({"/api/v1/complaints", "/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status",
+        @GetMapping("/api/v1/complaints")
+        Map<String, String> list() { return Map.of("result", "ok"); }
+
+        @RequestMapping({"/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status",
             "/api/v1/complaints/protocol/{protocol}"})
         Map<String, String> probe() { return Map.of("result", "ok"); }
     }
@@ -86,13 +92,13 @@ class SecurityHttpTests {
     @Test void rolesAndCurrentBinding() throws Exception {
         String approved = login("22233344455");
         String pending = login("33344455566");
-        assertEquals(200, call("POST", "/complaints", approved, "{}").statusCode());
+        assertEquals(201, call("POST", "/complaints", approved, VALID_COMPLAINT).statusCode());
         assertEquals(403, call("POST", "/complaints", pending, "{}").statusCode());
         var binding = bindings.findAllByResidentId(users.findByCpf("33344455566").orElseThrow().getId()).getFirst();
         binding.setStatus(BindingStatus.REJECTED); bindings.save(binding);
         assertEquals(403, call("POST", "/complaints", pending, "{}").statusCode());
         binding.setStatus(BindingStatus.APPROVED); bindings.save(binding);
-        assertEquals(200, call("POST", "/complaints", pending, "{}").statusCode());
+        assertEquals(201, call("POST", "/complaints", pending, VALID_COMPLAINT).statusCode());
         binding.setStatus(BindingStatus.PENDING); bindings.save(binding);
         assertEquals(403, call("POST", "/complaints", pending, "{}").statusCode());
         assertEquals(403, call("GET", "/complaints", approved, null).statusCode());
@@ -240,7 +246,7 @@ class SecurityHttpTests {
             var remaining = json.readTree(call("GET", "/bindings", manager, null).body());
             assertEquals(1, remaining.size());
             assertEquals(bruno.getId().longValue(), remaining.get(0).get("bindingId").asLong());
-            assertEquals(200, call("POST", "/complaints", resident, "{}").statusCode());
+            assertEquals(201, call("POST", "/complaints", resident, VALID_COMPLAINT).statusCode());
 
             assertEquals(204, call("POST", brunoPath, manager, null).statusCode());
             var additional = bindings.findById(bruno.getId()).orElseThrow();
@@ -310,6 +316,51 @@ class SecurityHttpTests {
         var invalid = call("GET", "/bindings?status=APPROVED", login("11122233344"), null);
         assertEquals(400, invalid.statusCode(), invalid.body());
         assertEquals("status", json.readTree(invalid.body()).get("validationErrors").get(0).get("field").asString());
+    }
+
+    @Test void registersAnonymousComplaintsWithDistinctProtocols() throws Exception {
+        String resident = login("22233344455");
+        Long condo = decoder.decode(resident).<Number>getClaim("condoId").longValue();
+        var protocols = new java.util.HashSet<String>();
+        for (ComplaintCategory category : ComplaintCategory.values()) {
+            var payload = new java.util.HashMap<String, Object>();
+            payload.put("category", category.name());
+            payload.put("description", "Ocorrência de teste");
+            if (category != ComplaintCategory.NOISE) payload.put("location", "Corredor");
+            var response = call("POST", "/complaints", resident, json.writeValueAsString(payload));
+            assertEquals(201, response.statusCode(), response.body());
+            var receipt = json.readTree(response.body());
+            assertEquals(2, receipt.size());
+            assertEquals("Complaint registered successfully.", receipt.get("message").asString());
+            String protocol = receipt.get("protocol").asString();
+            assertEquals(4, java.util.UUID.fromString(protocol).version());
+            assertTrue(protocols.add(protocol));
+            var stored = complaints.findAllByCondominiumId(condo).stream()
+                    .filter(c -> c.getProtocol().equals(protocol)).findFirst().orElseThrow();
+            assertEquals(category, stored.getCategory());
+            assertEquals(payload.get("description"), stored.getDescription());
+            assertEquals(payload.get("location"), stored.getLocation());
+            assertEquals(ComplaintStatus.RECEIVED, stored.getStatus());
+            assertNotNull(stored.getCreatedAt());
+        }
+    }
+
+    @Test void invalidOrUnauthorizedComplaintsDoNotWriteRows() throws Exception {
+        String resident = login("22233344455");
+        long before = complaints.count();
+        for (Object category : java.util.List.of("INEXISTENTE", 0)) {
+            var body = json.writeValueAsString(Map.of("category", category, "description", "Teste"));
+            assertEquals(400, call("POST", "/complaints", resident, body).statusCode());
+        }
+        for (var invalid : java.util.List.of(Map.of("description", "Teste"),
+                Map.of("category", "NOISE", "description", "  "),
+                Map.of("category", "NOISE", "description", "Teste", "location", "a".repeat(256)))) {
+            assertEquals(400, call("POST", "/complaints", resident, json.writeValueAsString(invalid)).statusCode());
+        }
+        assertEquals(401, call("POST", "/complaints", null, VALID_COMPLAINT).statusCode());
+        assertEquals(403, call("POST", "/complaints", login("33344455566"), VALID_COMPLAINT).statusCode());
+        assertEquals(403, call("POST", "/complaints", login("11122233344"), VALID_COMPLAINT).statusCode());
+        assertEquals(before, complaints.count());
     }
 
     @Test void invalidExpiredAndTamperedTokens() throws Exception {

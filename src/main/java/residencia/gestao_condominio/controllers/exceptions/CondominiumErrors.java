@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import residencia.gestao_condominio.controllers.BindingController;
+import residencia.gestao_condominio.controllers.ComplaintController;
 import residencia.gestao_condominio.controllers.CondominiumController;
 import residencia.gestao_condominio.controllers.UnitController;
 import residencia.gestao_condominio.services.exceptions.BindingConflictException;
@@ -20,7 +21,7 @@ import residencia.gestao_condominio.services.exceptions.BindingConflictException
 import java.time.Instant;
 import java.util.List;
 
-@RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class})
+@RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class, ComplaintController.class})
 public class CondominiumErrors {
     record FieldError(String field, String message) {}
     record ApiError(Instant timestamp, int status, String error, String message, String path,
@@ -53,6 +54,9 @@ public class CondominiumErrors {
     ResponseEntity<ApiError> persistenceError(DataIntegrityViolationException failure, HttpServletRequest request, HandlerMethod handler) {
         if (failure.getCause() instanceof ConstraintViolationException violation
                 && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE) {
+            if (handler.getBeanType() == ComplaintController.class) {
+                return response(HttpStatus.INTERNAL_SERVER_ERROR, "Could not register complaint", request, List.of());
+            }
             if (handler.getBeanType() == BindingController.class) {
                 return response(HttpStatus.CONFLICT, "Registration already exists", request, List.of());
             }

@@ -51,6 +51,10 @@
     {
       "key": "otherManagerToken",
       "value": ""
+    },
+    {
+      "key": "complaintProtocol",
+      "value": ""
     }
   ],
   "item": [
@@ -1075,6 +1079,266 @@
         "body": {
           "mode": "raw",
           "raw": "{\n  \"category\": \"NOISE\",\n  \"description\": \"Teste de autorização\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32. Registrar denúncia sem local",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{residentToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"NOISE\",\n  \"description\": \"Barulho após as 22h.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "  const data = pm.response.json();",
+              "  pm.test(\"Recibo com protocolo UUID v4\", () => {",
+              "    pm.expect(Object.keys(data).sort()).to.eql([\"message\", \"protocol\"]);",
+              "    pm.expect(data.protocol).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);",
+              "  });",
+              "  pm.collectionVariables.set(\"complaintProtocol\", data.protocol);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33. Registrar outra denúncia e comparar protocolos",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{residentToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"NOISE\",\n  \"description\": \"Barulho após as 22h.\",\n  \"location\": \"Corredor\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Protocolos diferentes\", () => pm.expect(pm.response.json().protocol).not.to.eql(pm.collectionVariables.get(\"complaintProtocol\")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34. Enviar descrição em branco",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{residentToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"NOISE\",\n  \"description\": \"  \"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35. Enviar categoria inválida",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{residentToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"INEXISTENTE\",\n  \"description\": \"Barulho após as 22h.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "36. Tentar registrar sem autenticação",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"NOISE\",\n  \"description\": \"Barulho após as 22h.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "37. Tentar registrar como síndico",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"NOISE\",\n  \"description\": \"Barulho após as 22h.\"\n}",
           "options": {
             "raw": {
               "language": "json"
