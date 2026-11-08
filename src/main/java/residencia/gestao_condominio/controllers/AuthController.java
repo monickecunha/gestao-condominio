@@ -1,4 +1,4 @@
-package residencia.gestao_condominio.security;
+package residencia.gestao_condominio.controllers;
 
 import jakarta.servlet.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -7,6 +7,7 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import residencia.gestao_condominio.entities.*;
+import residencia.gestao_condominio.exceptions.SecurityErrors;
 import residencia.gestao_condominio.repositories.*;
 import java.io.IOException;
 import java.time.Instant;

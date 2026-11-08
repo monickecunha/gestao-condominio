@@ -1,4 +1,4 @@
-package residencia.gestao_condominio.security;
+package residencia.gestao_condominio.exceptions;
 
 import jakarta.servlet.http.*;
 import java.io.IOException;
