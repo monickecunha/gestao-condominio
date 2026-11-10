@@ -1,25 +1,26 @@
 package residencia.gestao_condominio.controllers.exceptions;
 
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.List;
+
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.HandlerMethod;
 
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 import residencia.gestao_condominio.controllers.BindingController;
 import residencia.gestao_condominio.controllers.ComplaintController;
 import residencia.gestao_condominio.controllers.CondominiumController;
-import residencia.gestao_condominio.controllers.UnitController;
+import residencia.gestao_condominio.controllers.UnitController; //mateus F08
 import residencia.gestao_condominio.services.exceptions.BindingConflictException;
-
-import java.time.Instant;
-import java.util.List;
+import residencia.gestao_condominio.services.exceptions.TooManyRequestsException; //mateus F08
 
 @RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class, ComplaintController.class})
 public class CondominiumErrors {
@@ -48,6 +49,11 @@ public class CondominiumErrors {
     @ExceptionHandler(BindingConflictException.class)
     ResponseEntity<ApiError> bindingConflict(BindingConflictException failure, HttpServletRequest request) {
         return response(HttpStatus.CONFLICT, failure.getMessage(), request, List.of());
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class) //mateus F08
+    ResponseEntity<ApiError> tooManyRequests(TooManyRequestsException failure, HttpServletRequest request) {
+    return response(HttpStatus.TOO_MANY_REQUESTS, failure.getMessage(), request, List.of());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
