@@ -1,4 +1,3 @@
-// mateus F08
 package residencia.gestao_condominio.security;
 
 import java.time.Duration;
@@ -37,7 +36,7 @@ public class ProtocolLookupLimiter {
         }
     }
 
-    public void reset() { //mateus F08
+    public void reset() {
         windows.clear();
     }
 }

@@ -1,28 +1,28 @@
 package residencia.gestao_condominio.services;
 
-import org.springframework.stereotype.Service; //mateus F08
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
 import residencia.gestao_condominio.dto.ComplaintReceipt;
-import residencia.gestao_condominio.dto.ComplaintTrackingResponse; //mateus F08
-import residencia.gestao_condominio.dto.ComplaintTrackingResponse.StatusHistoryItem; //mateus F08
+import residencia.gestao_condominio.dto.ComplaintTrackingResponse;
+import residencia.gestao_condominio.dto.ComplaintTrackingResponse.StatusHistoryItem;
 import residencia.gestao_condominio.dto.CreateComplaintRequest;
 import residencia.gestao_condominio.entities.Complaint;
 import residencia.gestao_condominio.repositories.ComplaintRepository;
-import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepository; //mateus F08
+import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepository;
 import residencia.gestao_condominio.repositories.CondominiumRepository;
 
 @Service
 public class ComplaintService {
     private final ComplaintRepository complaints;
     private final CondominiumRepository condominiums;
-    private final ComplaintStatusHistoryRepository history; //mateus F08
+    private final ComplaintStatusHistoryRepository history;
 
-    public ComplaintService(ComplaintRepository complaints, CondominiumRepository condominiums, ComplaintStatusHistoryRepository history) { //mateus F08 
+    public ComplaintService(ComplaintRepository complaints, CondominiumRepository condominiums, ComplaintStatusHistoryRepository history) {
         this.complaints = complaints;
         this.condominiums = condominiums;
-        this.history = history; //mateus F08
+        this.history = history;
     }
 
     @Transactional
@@ -36,7 +36,7 @@ public class ComplaintService {
         return new ComplaintReceipt(saved.getProtocol(), "Complaint registered successfully.");
     }
 
-     @Transactional(readOnly = true) //mateus F08 
+     @Transactional(readOnly = true)
     public ComplaintTrackingResponse trackByProtocol(String protocol) {
         // 1. Busca a denúncia; se não existir, lança erro (vira 404)
         Complaint complaint = complaints.findByProtocol(protocol)

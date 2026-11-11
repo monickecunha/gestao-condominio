@@ -18,9 +18,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import residencia.gestao_condominio.controllers.BindingController;
 import residencia.gestao_condominio.controllers.ComplaintController;
 import residencia.gestao_condominio.controllers.CondominiumController;
-import residencia.gestao_condominio.controllers.UnitController; //mateus F08
+import residencia.gestao_condominio.controllers.UnitController;
 import residencia.gestao_condominio.services.exceptions.BindingConflictException;
-import residencia.gestao_condominio.services.exceptions.TooManyRequestsException; //mateus F08
+import residencia.gestao_condominio.services.exceptions.TooManyRequestsException;
 
 @RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class, ComplaintController.class})
 public class CondominiumErrors {
@@ -51,7 +51,7 @@ public class CondominiumErrors {
         return response(HttpStatus.CONFLICT, failure.getMessage(), request, List.of());
     }
 
-    @ExceptionHandler(TooManyRequestsException.class) //mateus F08
+    @ExceptionHandler(TooManyRequestsException.class)
     ResponseEntity<ApiError> tooManyRequests(TooManyRequestsException failure, HttpServletRequest request) {
     return response(HttpStatus.TOO_MANY_REQUESTS, failure.getMessage(), request, List.of());
     }

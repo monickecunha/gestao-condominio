@@ -1,4 +1,3 @@
-//mateus k07 11/10/25
 package residencia.gestao_condominio.dto;
 
 import java.time.Instant;

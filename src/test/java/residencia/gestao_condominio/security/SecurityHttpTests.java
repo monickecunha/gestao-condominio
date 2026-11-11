@@ -45,7 +45,7 @@ class SecurityHttpTests {
         @GetMapping("/api/v1/complaints")
         Map<String, String> list() { return Map.of("result", "ok"); }
 
-        @RequestMapping({"/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status"}) //mateus: rota de protocolo agora é real (K08) 
+        @RequestMapping({"/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status"})
         Map<String, String> probe() { return Map.of("result", "ok"); }
     }
     @BeforeAll void fixture() {
@@ -86,7 +86,7 @@ class SecurityHttpTests {
         assertEquals(401, response.statusCode());
         assertTrue(response.body().contains("\"status\":401"));
         assertEquals(401, call("POST", "/complaints", null, "{}").statusCode());
-        assertEquals(404, call("GET", "/complaints/protocol/550e8400-e29b-41d4-a716-446655440000", null, null).statusCode()); //mateus Rota pública (K08): sem login não dá 401; o protocolo de exemplo não existe, então dá 404
+        assertEquals(404, call("GET", "/complaints/protocol/550e8400-e29b-41d4-a716-446655440000", null, null).statusCode());
     }
     @Test void rolesAndCurrentBinding() throws Exception {
         String approved = login("22233344455");
