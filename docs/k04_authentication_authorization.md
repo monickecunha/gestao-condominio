@@ -12,7 +12,7 @@ Senhas da carga local são armazenadas com BCrypt, custo 12 e salt individual. N
 
 Opcionalmente definir `JWT_SECRET` com Base64 de pelo menos 32 bytes aleatórios. A chave não deve ser versionada. Sem essa variável, é gerada uma chave criptograficamente aleatória por inicialização; reiniciar invalida os tokens anteriores. Instâncias que compartilham tokens devem configurar a mesma chave. O console H2 permanece desabilitado e não é uma rota pública.
 
-Um morador com vínculo pendente/rejeitado pode autenticar, mas não denunciar. Sem condomínio associado, o login retorna 403. O campo opcional `condoId` seleciona um condomínio já associado; não concede acesso a outro. Se houver múltiplos condomínios associados, a seleção é obrigatória. Síndico só pode selecionar seu condomínio.
+Um vínculo pendente permite fazer login. Registrar denúncia exige um vínculo aprovado no condomínio. O login desconsidera os vínculos rejeitados ao selecionar o condomínio. Se nenhum condomínio for elegível, o login retorna `403` sem emitir token. O campo opcional `condoId` seleciona um condomínio elegível e é obrigatório quando há mais de um. Selecionar um condomínio onde todos os vínculos estão rejeitados também retorna `403`. Síndico só pode selecionar seu condomínio.
 
 ## Política das rotas
 

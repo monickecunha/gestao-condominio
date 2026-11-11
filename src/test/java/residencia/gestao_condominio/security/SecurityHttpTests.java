@@ -293,7 +293,27 @@ class SecurityHttpTests {
             assertTrue(bindings.findById(bruno.getId()).orElseThrow().isPrimaryResident());
             assertEquals(409, call("POST", brunoPath + "/reject", manager, null).statusCode());
             assertEquals(403, call("POST", "/complaints", resident, "{}").statusCode());
-            assertEquals(403, call("POST", "/complaints", login("44455566677"), "{}").statusCode());
+            var credentials = Map.of("cpf", "44455566677", "password", "123456");
+            var denied = call("POST", "/auth/login", null, json.writeValueAsString(credentials));
+            assertEquals(403, denied.statusCode(), denied.body());
+            assertFalse(json.readTree(denied.body()).has("token"));
+
+            var scopedCredentials = Map.of("cpf", "44455566677", "password", "123456", "condoId", otherCondo);
+            var scoped = call("POST", "/auth/login", null, json.writeValueAsString(scopedCredentials));
+            assertEquals(403, scoped.statusCode(), scoped.body());
+
+            var secondUnit = units.save(new Unit(null, condos.findById(otherCondo).orElseThrow(), "B", "508"));
+            try {
+                var approved = new UnitBinding();
+                approved.setResident(ana.getResident());
+                approved.setUnit(secondUnit);
+                approved.setStatus(BindingStatus.APPROVED);
+                bindings.save(approved);
+                assertEquals(otherCondo.longValue(), decoder.decode(login("44455566677")).<Number>getClaim("condoId").longValue());
+            } finally {
+                bindings.deleteAll(bindings.findAllByUnitCondominiumId(otherCondo));
+                units.delete(secondUnit);
+            }
         } finally {
             bindings.deleteAll(bindings.findAllByUnitCondominiumId(otherCondo));
             units.delete(unit);

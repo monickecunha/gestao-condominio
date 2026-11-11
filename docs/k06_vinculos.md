@@ -70,7 +70,7 @@ as requisições 12 a 16 testam permissões, prioridade, aprovação e a fila re
 
 ## Rejeição pelo síndico
 
-O síndico usa `POST /api/v1/bindings/{bindingId}/reject`, sem corpo. Na mesma transação, o serviço bloqueia a unidade, confere o condomínio e exige um pedido `PENDING`. A rejeição grava `REJECTED` e retorna `204`. Aprovar ou rejeitar novamente esse pedido resulta em `409`. O morador conserva a conta e pode fazer login. Se esse era seu único vínculo, continua recebendo `403` ao tentar denunciar.
+O síndico usa `POST /api/v1/bindings/{bindingId}/reject`, sem corpo. Na mesma transação, o serviço bloqueia a unidade, confere o condomínio e exige um pedido `PENDING`. A rejeição grava `REJECTED` e retorna `204`. Aprovar ou rejeitar novamente esse pedido resulta em `409`. O morador conserva a conta. Se todos os seus vínculos no condomínio estiverem rejeitados, o próximo login nesse condomínio retorna `403` sem token. Outro vínculo pendente ou aprovado no mesmo condomínio permite fazer login.
 
 Se Ana e Bruno pediram, nessa ordem, uma unidade sem responsável, rejeitar Ana deixa Bruno como o primeiro pendente. Bruno só se torna responsável quando o síndico o aprova. A rejeição não promove o próximo candidato automaticamente.
 
@@ -84,7 +84,7 @@ Depois das requisições 1 a 16, a coleção usa outra unidade (102) e CPFs dist
 | 21–23 | Sem token retorna 401. O token de Ana retorna 403 para seu próprio pedido. A tentativa do outro síndico também deve retornar 403. |
 | 24–25 | Rejeitar Ana retorna 204; a listagem contém somente Bruno entre os pedidos da unidade 102. |
 | 26–29 | Rejeitar ou aprovar Ana novamente retorna 409; aprovar Bruno retorna 204; tentar rejeitá-lo depois retorna 409. |
-| 30–31 | Ana ainda consegue fazer login (200), mas seu token não autoriza o registro de denúncia (403). |
+| 30–31 | O novo login de Ana retorna 403 sem token. Tentar registrar denúncia com o token obtido no passo 20 também retorna 403. |
 
 O passo 23 é opcional no Postman: o MVP permite um condomínio por instalação. A coleção pula essa chamada quando a variável `otherManagerToken` está vazia. O teste automatizado `SecurityHttpTests.rejectingFirstApplicantLeavesTheNextEligibleForPrimary` usa dois condomínios em um H2 isolado para verificar essa permissão. Ele também consulta o banco para confirmar que Ana está rejeitada e que Bruno se tornou responsável após a aprovação.
 

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import residencia.gestao_condominio.dto.LoginRequest;
 import residencia.gestao_condominio.dto.LoginResponse;
 import residencia.gestao_condominio.entities.Administrator;
+import residencia.gestao_condominio.entities.BindingStatus;
 import residencia.gestao_condominio.entities.User;
 import residencia.gestao_condominio.repositories.UnitBindingRepository;
 import residencia.gestao_condominio.repositories.UserRepository;
@@ -48,6 +49,7 @@ public class AuthService {
         } else {
             role = "RESIDENT";
             condoIds = bindings.findAllByResidentId(user.getId()).stream()
+                    .filter(binding -> binding.getStatus() != BindingStatus.REJECTED)
                     .map(binding -> binding.getUnit().getCondominium().getId())
                     .distinct()
                     .toList();

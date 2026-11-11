@@ -17,7 +17,7 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | Método e caminho | Autorização | Dados necessários | Sucesso |
 |---|---|---|---|
 | `POST /condominiums` | No Auth | Corpo com `condominium.name`, `manager.name`, `manager.cpf` e `manager.password`. Opcionais na seção de cadastro abaixo. | 201 com `condoId` e `managerId` |
-| `POST /auth/login` | No Auth | Corpo com `cpf` e `password`; inclua `condoId` se houver mais de um condomínio associado. | 200 com `token`, `expiresIn`, `role` e `condoId` |
+| `POST /auth/login` | No Auth | Corpo com `cpf` e `password`; inclua `condoId` se houver mais de um condomínio elegível para login. | 200 com `token`, `expiresIn`, `role` e `condoId` |
 | `POST /condominiums/{condoId}/units` | Bearer do síndico | `condoId` do login na URL. Corpo com `number` obrigatório e `block` opcional. | 201 com `id`, `number` e `block` |
 | `GET /condominiums/{condoId}/units` | Bearer do síndico | `condoId` do login na URL. Sem corpo. | 200 com lista, inclusive `[]` |
 | `POST /bindings` | No Auth | Corpo com `name`, `cpf`, `password` e `unitId` (o `id` retornado ao criar a unidade). | 201 com `bindingId`, `unitId` e `status: "PENDING"` |
@@ -54,7 +54,7 @@ Todas as respostas de erro (400, 401, 403, 404, 500) seguirão este formato padr
 ## 2. Autenticação (Auth)
 
 ### `POST /auth/login`
-Autentica um usuário (Síndico ou Morador) e retorna o token JWT.
+Autentica um usuário (Síndico ou Morador) e retorna o token JWT. Para o morador, vínculos rejeitados são desconsiderados na seleção do condomínio, inclusive quando o pedido informa `condoId`. Se todos os vínculos no condomínio estiverem rejeitados, o login com credenciais válidas retorna `403` sem token.
 *   **Request Body:**
     ```json
     {
@@ -212,8 +212,7 @@ curl -i -X POST -H "Authorization: Bearer $TOKEN" \
 Use o ID do vínculo no caminho e o token do síndico do condomínio. O pedido
 deve estar pendente. A operação retira o vínculo da fila, preserva a conta do
 morador e deixa o próximo pendente elegível para responsável se a unidade ainda
-estiver sem responsável. O morador rejeitado consegue fazer login; registrar
-denúncia exige ao menos um vínculo aprovado no condomínio do token.
+estiver sem responsável. Se esse era o único vínculo do morador no condomínio, uma nova tentativa de login retorna `403`. Registrar denúncia com um token anterior à rejeição também exige ao menos um vínculo aprovado no condomínio do token.
 
 ```bash
 curl -i -X POST -H "Authorization: Bearer $TOKEN" \
@@ -311,4 +310,4 @@ Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).
 
 ## Complemento K04
 
-A implementação de autenticação e a matriz de autorização estão em [K04](k04_authentication_authorization.md). O login aceita adicionalmente `condoId` opcional para selecionar um condomínio já associado (obrigatório se houver mais de um). Sem associação válida retorna 403; credenciais inválidas retornam 401. Token expirado/inválido retorna 401; perfil, condomínio ou vínculo sem permissão retorna 403. Logout consiste em descartar o token no cliente.
+A implementação de autenticação e a matriz de autorização estão em [K04](k04_authentication_authorization.md). O login aceita adicionalmente `condoId` opcional para selecionar um condomínio elegível para login (obrigatório se houver mais de um). Sem associação válida retorna 403; credenciais inválidas retornam 401. Token expirado/inválido retorna 401; perfil, condomínio ou vínculo sem permissão retorna 403. Logout consiste em descartar o token no cliente.

@@ -1048,8 +1048,8 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
-              "if (pm.response.code === 200) pm.collectionVariables.set(\"rejectedResidentToken\", pm.response.json().token);"
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Login recusado sem token\", () => pm.expect(pm.response.json()).not.to.have.property(\"token\"));"
             ]
           }
         }
