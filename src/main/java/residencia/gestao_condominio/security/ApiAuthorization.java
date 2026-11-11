@@ -41,7 +41,7 @@ public class ApiAuthorization implements AuthorizationManager<RequestAuthorizati
                         allowed = condo.equals(Long.valueOf(p[4])) && (request.getMethod().equals("POST") || request.getMethod().equals("GET"));
                     } else if (path.matches("/api/v1/bindings/[0-9]+/(approve|reject)")) {
                         allowed = request.getMethod().equals("POST") && bindings.findByIdAndUnitCondominiumId(Long.valueOf(p[4]), condo).isPresent();
-                    } else if (path.equals("/api/v1/complaints")) {
+                    } else if (path.equals("/api/v1/complaints") || path.equals("/api/v1/bindings")) {
                         allowed = request.getMethod().equals("GET");
                     } else if (path.matches("/api/v1/complaints/[0-9]+")) {
                         allowed = request.getMethod().equals("GET") && complaints.findByIdAndCondominiumId(Long.valueOf(p[4]), condo).isPresent();
