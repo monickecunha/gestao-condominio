@@ -39,13 +39,10 @@ class SecurityHttpTests {
     final HttpClient client = HttpClient.newHttpClient();
     Long otherCondo;
 
-    // Test-only handlers exercise the real filter chain without implementing K05–K10.
+    // Test-only handlers exercise the real filter chain without implementing K05–K10(agora K10).
     @RestController
     static class ProbeController {
-        @GetMapping("/api/v1/complaints")
-        Map<String, String> list() { return Map.of("result", "ok"); }
-
-        @RequestMapping({"/api/v1/complaints/{id}", "/api/v1/complaints/{id}/status"})
+        @RequestMapping("/api/v1/complaints/{id}/status")
         Map<String, String> probe() { return Map.of("result", "ok"); }
     }
     @BeforeAll void fixture() {
@@ -393,6 +390,3 @@ class SecurityHttpTests {
         assertEquals(401, call("GET", "/complaints", expired, null).statusCode());
     }
 }
-
-
-

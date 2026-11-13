@@ -1,13 +1,18 @@
 package residencia.gestao_condominio.services;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
+import residencia.gestao_condominio.dto.ComplaintDetailResponse;
 import residencia.gestao_condominio.dto.ComplaintReceipt;
+import residencia.gestao_condominio.dto.ComplaintSummaryResponse;
 import residencia.gestao_condominio.dto.ComplaintTrackingResponse;
 import residencia.gestao_condominio.dto.ComplaintTrackingResponse.StatusHistoryItem;
 import residencia.gestao_condominio.dto.CreateComplaintRequest;
+import residencia.gestao_condominio.dto.PageResponse;
 import residencia.gestao_condominio.entities.Complaint;
 import residencia.gestao_condominio.repositories.ComplaintRepository;
 import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepository;
@@ -15,6 +20,9 @@ import residencia.gestao_condominio.repositories.CondominiumRepository;
 
 @Service
 public class ComplaintService {
+
+    static final int MAX_PAGE_SIZE = 100;
+
     private final ComplaintRepository complaints;
     private final CondominiumRepository condominiums;
     private final ComplaintStatusHistoryRepository history;
@@ -36,13 +44,12 @@ public class ComplaintService {
         return new ComplaintReceipt(saved.getProtocol(), "Complaint registered successfully.");
     }
 
-     @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public ComplaintTrackingResponse trackByProtocol(String protocol) {
-        // 1. Busca a denúncia; se não existir, lança erro (vira 404)
+
         Complaint complaint = complaints.findByProtocol(protocol)
                 .orElseThrow(EntityNotFoundException::new);
 
-        // 2. Busca o histórico e converte cada item para o formato público
         var items = history.findAllByComplaintIdOrderByChangedAtAsc(complaint.getId()).stream()
                 .map(h -> new StatusHistoryItem(
                         h.getPreviousStatus(),
@@ -51,12 +58,10 @@ public class ComplaintService {
                         h.getJustification()))
                 .toList();
 
-        // 3. updatedAt = última mudança de status (ou a criação, se nunca mudou)
         var updatedAt = items.isEmpty()
                 ? complaint.getCreatedAt()
                 : items.get(items.size() - 1).changedAt();
 
-        // 4. Monta a resposta só com campos públicos
         return new ComplaintTrackingResponse(
                 complaint.getProtocol(),
                 complaint.getCategory(),
@@ -64,5 +69,27 @@ public class ComplaintService {
                 complaint.getCreatedAt(),
                 updatedAt,
                 items);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ComplaintSummaryResponse> listForManager(Long condoId, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        var pageable = PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
+
+        var result = complaints.findAllByCondominiumId(condoId, pageable)
+                .map(c -> new ComplaintSummaryResponse(
+                        c.getId(), c.getProtocol(), c.getCategory(), c.getCreatedAt(), c.getStatus()));
+        return PageResponse.from(result);
+    }
+
+    @Transactional(readOnly = true)
+    public ComplaintDetailResponse detailForManager(Long condoId, Long id) {
+        Complaint c = complaints.findByIdAndCondominiumId(id, condoId)
+                .orElseThrow(EntityNotFoundException::new);
+        return new ComplaintDetailResponse(
+                c.getId(), c.getProtocol(), c.getCategory(), c.getStatus(),
+                c.getCreatedAt(), c.getDescription(), c.getLocation());
     }
 }
