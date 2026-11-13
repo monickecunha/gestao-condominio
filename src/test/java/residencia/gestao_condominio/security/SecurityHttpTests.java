@@ -3,8 +3,6 @@ package residencia.gestao_condominio.security;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.*;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -18,7 +16,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"spring.datasource.url=jdbc:h2:mem:k04", "spring.jpa.hibernate.ddl-auto=create-drop", "spring.jpa.show-sql=false"})
-@Import(SecurityHttpTests.ProbeController.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SecurityHttpTests {
     private static final String VALID_COMPLAINT = """
@@ -39,12 +36,6 @@ class SecurityHttpTests {
     final HttpClient client = HttpClient.newHttpClient();
     Long otherCondo;
 
-    // Test-only handlers exercise the real filter chain without implementing K05–K10(agora K10).
-    @RestController
-    static class ProbeController {
-        @RequestMapping("/api/v1/complaints/{id}/status")
-        Map<String, String> probe() { return Map.of("result", "ok"); }
-    }
     @BeforeAll void fixture() {
         // The production MVP allows one condominium per database. Relax only this test schema
         // so HTTP isolation can be exercised with two real persisted condominiums.
@@ -116,6 +107,81 @@ class SecurityHttpTests {
         assertEquals(403, call("POST", "/bindings/" + binding + "/approve", other, "{}").statusCode());
         assertEquals(403, call("POST", "/auth/login", null, "{\"cpf\":\"22233344455\",\"password\":\"123456\",\"condoId\":" + otherCondo + "}").statusCode());
     }
+    private Complaint newComplaint() throws Exception {
+        var registered = call("POST", "/complaints", login("22233344455"), VALID_COMPLAINT);
+        assertEquals(201, registered.statusCode(), registered.body());
+        return complaints.findByProtocol(json.readTree(registered.body()).get("protocol").asString()).orElseThrow();
+    }
+
+    @Test void resolvesComplaintWithPrivateActionAndPublicHistory() throws Exception {
+        var complaint = newComplaint();
+        String path = "/complaints/" + complaint.getId();
+        String manager = login("11122233344");
+        String actionBody = "{\"actionDescription\":\"Inspecionar o corredor\"}";
+        for (String token : new String[]{null, login("22233344455"), login("99988877766")}) {
+            int denied = token == null ? 401 : 403;
+            assertEquals(denied, call("POST", path + "/actions", token, actionBody).statusCode());
+            assertEquals(denied, call("PATCH", path + "/status", token, "{\"newStatus\":\"UNDER_REVIEW\"}").statusCode());
+        }
+        assertEquals(400, call("POST", path + "/actions", manager, "{\"actionDescription\":\"  \"}").statusCode());
+        var action = call("POST", path + "/actions", manager, actionBody);
+        assertEquals(201, action.statusCode(), action.body());
+        var recorded = json.readTree(action.body());
+        assertEquals("Inspecionar o corredor", recorded.get("actionDescription").asString());
+        assertEquals(users.findByCpf("11122233344").orElseThrow().getName(), recorded.get("registeredBy").asString());
+        Instant.parse(recorded.get("executedAt").asString());
+
+        assertEquals(409, call("PATCH", path + "/status", manager, "{\"newStatus\":\"RESOLVED\"}").statusCode());
+        var expectedHistory = json.createArrayNode();
+        String previous = "RECEIVED";
+        for (String next : new String[]{"UNDER_REVIEW", "IN_PROGRESS", "RESOLVED"}) {
+            var response = call("PATCH", path + "/status", manager, json.writeValueAsString(Map.of("newStatus", next)));
+            assertEquals(200, response.statusCode(), response.body());
+            var entry = json.readTree(response.body());
+            assertEquals(previous, entry.get("previousStatus").asString());
+            assertEquals(next, entry.get("nextStatus").asString());
+            expectedHistory.add(entry);
+            previous = next;
+        }
+        assertEquals(409, call("PATCH", path + "/status", manager, "{\"newStatus\":\"UNDER_REVIEW\"}").statusCode());
+        var tracking = call("GET", "/complaints/protocol/" + complaint.getProtocol(), null, null);
+        assertEquals(200, tracking.statusCode(), tracking.body());
+        var body = json.readTree(tracking.body());
+        assertEquals("RESOLVED", body.get("status").asString());
+        assertEquals(expectedHistory, body.get("statusHistory"));
+        assertEquals(expectedHistory.get(2).get("changedAt"), body.get("updatedAt"));
+        assertFalse(body.has("internalActions"));
+        assertFalse(tracking.body().contains("Inspecionar o corredor"));
+        var details = json.readTree(call("GET", path, manager, null).body());
+        assertEquals("RESOLVED", details.get("status").asString());
+        assertEquals(json.createArrayNode().add(recorded), details.get("internalActions"));
+    }
+
+    @Test void concurrentReviewAndJustifiedRejectionProduceExactlyTwoEntries() throws Exception {
+        var complaint = newComplaint();
+        String manager = login("11122233344");
+        String path = "/complaints/" + complaint.getId() + "/status";
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1" + path))
+                .header("Content-Type", "application/json").header("Authorization", "Bearer " + manager)
+                .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"newStatus\":\"UNDER_REVIEW\"}")).build();
+        var first = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        var second = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(java.util.List.of(200, 409), java.util.stream.Stream.of(first.join(), second.join())
+                .map(HttpResponse::statusCode).sorted().toList());
+
+        for (String invalid : new String[]{"{}", "{\"newStatus\":\"REJECTED\"}", "{\"newStatus\":\"REJECTED\",\"justification\":\"  \"}"}) {
+            assertEquals(400, call("PATCH", path, manager, invalid).statusCode());
+        }
+        assertEquals(200, call("PATCH", path, manager, "{\"newStatus\":\"REJECTED\",\"justification\":\"Sem evidências\"}").statusCode());
+        assertEquals(409, call("PATCH", path, manager, "{\"newStatus\":\"IN_PROGRESS\"}").statusCode());
+        var tracking = json.readTree(call("GET", "/complaints/protocol/" + complaint.getProtocol(), null, null).body());
+        assertEquals("REJECTED", tracking.get("status").asString());
+        var history = tracking.get("statusHistory");
+        assertEquals(2, history.size());
+        assertEquals("UNDER_REVIEW", history.get(1).get("previousStatus").asString());
+        assertEquals("Sem evidências", history.get(1).get("publicJustification").asString());
+    }
+
     @Test void managesUnitsWithinOwnCondominium() throws Exception {
         String manager = login("99988877766");
         String path = "/condominiums/" + otherCondo + "/units";
