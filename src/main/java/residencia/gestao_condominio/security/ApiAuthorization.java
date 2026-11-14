@@ -35,6 +35,10 @@ public class ApiAuthorization implements AuthorizationManager<RequestAuthorizati
                 String path = request.getServletPath();
                 if ("RESIDENT".equals(role) && "POST".equals(request.getMethod()) && path.equals("/api/v1/complaints")) {
                     allowed = bindings.existsByResidentIdAndUnitCondominiumIdAndStatus(user, condo, BindingStatus.APPROVED);
+                } else if ("RESIDENT".equals(role) && "POST".equals(request.getMethod())
+                        && path.equals("/api/v1/bindings/additional")) {
+                    // The service checks primary status for the requested unit under its lock.
+                    allowed = true;
                 } else if ("MANAGER".equals(role) && admins.existsByIdAndCondominiumId(user, condo)) {
                     String[] p = path.split("/");
                     if (path.matches("/api/v1/condominiums/[0-9]+/units")) {
