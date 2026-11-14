@@ -26,7 +26,7 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /complaints` | Bearer de morador aprovado | Corpo com `category` e `description`; `location` opcional. | 201 com protocolo e mensagem |
 | `GET /complaints/protocol/{protocol}` | Público | Protocolo retornado no cadastro | 200 com status e histórico público |
-| `GET /complaints` | Síndico | `page` e `size` opcionais | 200 com página do próprio condomínio |
+| `GET /complaints` | Síndico | Filtros opcionais `category`, `status`, `from` e `to`; paginação com `page` e `size` | 200 com página filtrada do próprio condomínio |
 | `GET /complaints/{id}` | Síndico | ID da denúncia | 200 com detalhes e providências internas |
 | `PATCH /complaints/{id}/status` | Síndico | `newStatus` e justificativa obrigatória na rejeição | 200 com a transição registrada |
 | `POST /complaints/{id}/actions` | Síndico | `actionDescription` | 201 com a providência registrada |
@@ -274,6 +274,79 @@ Consulta pública do andamento da denúncia pelo protocolo (Não requer autentic
       ]
     }
     ```
+
+### `GET /complaints`
+
+Lista as denúncias do condomínio identificado pelo token. Requer perfil `MANAGER`. Não recebe corpo de requisição.
+
+Os filtros são opcionais e podem ser combinados. Quando vários filtros são informados, a denúncia precisa atender a todos eles. Sem filtros, retorna a listagem paginada do próprio condomínio.
+
+| Parâmetro | Formato e comportamento |
+|---|---|
+| `category` | Categoria: `NOISE`, `SECURITY`, `COMMON_AREA_MISUSE`, `GARBAGE_VIOLATION`, `RULES_VIOLATION` ou `OTHER`. |
+| `status` | Status atual: `RECEIVED`, `UNDER_REVIEW`, `IN_PROGRESS`, `RESOLVED` ou `REJECTED`. |
+| `from` | Data inicial de registro, no formato `yyyy-MM-dd`. Inclui registros a partir de 00h00 desse dia. |
+| `to` | Data final de registro, no formato `yyyy-MM-dd`. Inclui o dia inteiro, até antes de 00h00 do dia seguinte. |
+| `page` | Índice da página, começando em zero. Padrão: `0`. Valores negativos são ajustados para `0`. |
+| `size` | Quantidade de itens por página. Padrão: `20`. Valores menores que `1` são ajustados para `1`; valores maiores que `100` são limitados a `100`. |
+
+Informe categorias e status em maiúsculas, conforme os valores listados.
+
+O período considera a data de registro (`createdAt`) no fuso `America/Sao_Paulo`. É possível informar apenas `from` ou apenas `to`; nesse caso, somente o limite informado é aplicado. Quando ambos são enviados, `from` deve ser anterior ou igual a `to`. Datas iguais selecionam um único dia.
+
+Os resultados são ordenados por `createdAt` decrescente, com desempate por `id` decrescente. Os totais da paginação consideram os filtros aplicados.
+
+**Exemplo com filtros combinados:**
+
+```http
+GET /api/v1/complaints?category=NOISE&status=UNDER_REVIEW&from=2026-11-01&to=2026-11-30&page=0&size=20
+Authorization: Bearer <token-do-sindico>
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "content": [
+    {
+      "id": 15,
+      "protocol": "550e8400-e29b-41d4-a716-446655440000",
+      "category": "NOISE",
+      "createdAt": "2026-11-10T12:00:00Z",
+      "status": "UNDER_REVIEW"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+Quando nenhuma denúncia corresponde aos filtros, a resposta continua sendo 200:
+
+```json
+{
+  "content": [],
+  "page": 0,
+  "size": 20,
+  "totalElements": 0,
+  "totalPages": 0
+}
+```
+
+**Erros dos filtros:**
+
+| Situação | Código | Campo em `validationErrors` | Mensagem |
+|---|---|---|---|
+| Categoria inválida, como `category=BANANA` | 400 | `category` | `Invalid value` |
+| Status inválido, como `status=FINISHED` | 400 | `status` | `Invalid value` |
+| Data inválida, como `from=banana` ou `to=2026-02-30` | 400 | `from` ou `to` | `Invalid value` |
+| Data inicial posterior à final | 400 | `periodValid` | `from must be on or before to` |
+
+Esses erros seguem o padrão de resposta da API, com `message: "Validation failed"` e os detalhes em `validationErrors`. O campo `periodValid` identifica a validação do intervalo; não é um parâmetro da requisição.
+
+Token ausente ou inválido retorna 401. Acesso com perfil de morador retorna 403. Os filtros não permitem consultar denúncias de outro condomínio.
 
 ### `GET /complaints/{id}`
 Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
