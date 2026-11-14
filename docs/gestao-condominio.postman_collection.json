@@ -71,6 +71,22 @@
     {
       "key": "firstComplaintId",
       "value": ""
+    },
+    {
+      "key": "k15SecurityProtocol",
+      "value": ""
+    },
+    {
+      "key": "k15From",
+      "value": ""
+    },
+    {
+      "key": "k15To",
+      "value": ""
+    },
+    {
+      "key": "k15After",
+      "value": ""
     }
   ],
   "item": [
@@ -2507,7 +2523,740 @@
       ]
     },
     {
-      "name": "68. Verificar o limite de consultas públicas",
+      "name": "68. K15: registrar denúncia de segurança",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"category\": \"SECURITY\",\n  \"description\": \"Ocorrência de segurança para validar os filtros K15.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Execute após os passos 1 a 67 em banco H2 vazio e com a implementação K15 disponível. Cria uma terceira denúncia, sem alterar as duas usadas no fluxo anterior."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "  pm.collectionVariables.set(\"k15SecurityProtocol\", pm.response.json().protocol);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "69. K15: conferir ausência de filtros e preparar datas",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(3);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"k15SecurityProtocol\"), pm.collectionVariables.get(\"secondComplaintProtocol\"), pm.collectionVariables.get(\"complaintProtocol\")]);",
+              "  // Os registros deste roteiro são criados agora; Brasília usa UTC-03:00.",
+              "  const dates = page.content.map(item =>",
+              "    new Date(Date.parse(item.createdAt) - 3 * 60 * 60 * 1000).toISOString().slice(0, 10)",
+              "  ).sort();",
+              "  pm.collectionVariables.set(\"k15From\", dates[0]);",
+              "  pm.collectionVariables.set(\"k15To\", dates[dates.length - 1]);",
+              "  const nextDay = new Date(dates[dates.length - 1] + \"T00:00:00Z\");",
+              "  nextDay.setUTCDate(nextDay.getUTCDate() + 1);",
+              "  pm.collectionVariables.set(\"k15After\", nextDay.toISOString().slice(0, 10));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "70. K15: filtrar somente por categoria",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=SECURITY",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(1);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"k15SecurityProtocol\")]);",
+              "  page.content.forEach(item => pm.expect(item.category).to.eql(\"SECURITY\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "71. K15: filtrar somente por status",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?status=REJECTED",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(1);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"complaintProtocol\")]);",
+              "  page.content.forEach(item => pm.expect(item.status).to.eql(\"REJECTED\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "72. K15: filtrar somente pela data inicial",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?from={{k15From}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(3);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"k15SecurityProtocol\"), pm.collectionVariables.get(\"secondComplaintProtocol\"), pm.collectionVariables.get(\"complaintProtocol\")]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "73. K15: filtrar somente pela data final",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?to={{k15To}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(3);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"k15SecurityProtocol\"), pm.collectionVariables.get(\"secondComplaintProtocol\"), pm.collectionVariables.get(\"complaintProtocol\")]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "74. K15: combinar os quatro filtros",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=NOISE&status=RESOLVED&from={{k15From}}&to={{k15To}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(1);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"secondComplaintProtocol\")]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "75. K15: paginar filtros combinados (página 0)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=NOISE&from={{k15From}}&to={{k15To}}&page=0&size=1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(1);",
+              "  pm.expect(page.totalElements).to.eql(2);",
+              "  pm.expect(page.totalPages).to.eql(2);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"secondComplaintProtocol\")]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "76. K15: paginar filtros combinados (página 1)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=NOISE&from={{k15From}}&to={{k15To}}&page=1&size=1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(1);",
+              "  pm.expect(page.size).to.eql(1);",
+              "  pm.expect(page.totalElements).to.eql(2);",
+              "  pm.expect(page.totalPages).to.eql(2);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([pm.collectionVariables.get(\"complaintProtocol\")]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "77. K15: retornar vazio para categoria sem ocorrências",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=OTHER",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(0);",
+              "  pm.expect(page.totalPages).to.eql(0);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "78. K15: retornar vazio para combinação incompatível",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=SECURITY&status=RESOLVED",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(0);",
+              "  pm.expect(page.totalPages).to.eql(0);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "79. K15: excluir registros anteriores à data inicial",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?from={{k15After}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página filtrada com protocolos e totais esperados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(0);",
+              "  pm.expect(page.totalPages).to.eql(0);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([]);",
+              "  ",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "80. K15: recusar categoria inválida",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=BANANA",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Erro de validação identifica o campo e a mensagem\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.status).to.eql(400);",
+              "  pm.expect(error.message).to.eql(\"Validation failed\");",
+              "  pm.expect(error.path).to.eql(\"/api/v1/complaints\");",
+              "  pm.expect(error.validationErrors).to.deep.include({field: \"category\", message: \"Invalid value\"});",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "81. K15: recusar status inválido",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?status=FINISHED",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Erro de validação identifica o campo e a mensagem\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.status).to.eql(400);",
+              "  pm.expect(error.message).to.eql(\"Validation failed\");",
+              "  pm.expect(error.path).to.eql(\"/api/v1/complaints\");",
+              "  pm.expect(error.validationErrors).to.deep.include({field: \"status\", message: \"Invalid value\"});",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "82. K15: recusar data inicial malformada",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?from=banana",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Erro de validação identifica o campo e a mensagem\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.status).to.eql(400);",
+              "  pm.expect(error.message).to.eql(\"Validation failed\");",
+              "  pm.expect(error.path).to.eql(\"/api/v1/complaints\");",
+              "  pm.expect(error.validationErrors).to.deep.include({field: \"from\", message: \"Invalid value\"});",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "83. K15: recusar data final inexistente",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?to=2026-02-30",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Erro de validação identifica o campo e a mensagem\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.status).to.eql(400);",
+              "  pm.expect(error.message).to.eql(\"Validation failed\");",
+              "  pm.expect(error.path).to.eql(\"/api/v1/complaints\");",
+              "  pm.expect(error.validationErrors).to.deep.include({field: \"to\", message: \"Invalid value\"});",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "84. K15: recusar período invertido",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?from=2026-11-30&to=2026-11-01",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Erro de validação identifica o campo e a mensagem\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.status).to.eql(400);",
+              "  pm.expect(error.message).to.eql(\"Validation failed\");",
+              "  pm.expect(error.path).to.eql(\"/api/v1/complaints\");",
+              "  pm.expect(error.validationErrors).to.deep.include({field: \"periodValid\", message: \"from must be on or before to\"});",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "85. K15: recusar filtros para morador",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=NOISE&status=RESOLVED",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "86. K15: exigir login para filtrar",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=NOISE&status=RESOLVED",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "87. K15: opcional: preservar isolamento com filtros",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?category=NOISE&from={{k15From}}&to={{k15To}}&size=100",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherManagerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requer otherManagerToken válido no mesmo servidor e fixture com até 100 denúncias correspondentes no segundo condomínio. O perfil padrão admite um único condomínio; sem token, esta requisição é ignorada. A prova automatizada com dois condomínios está em ComplaintFilterHttpTests."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.variables.get(\"otherManagerToken\")) pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Resultado filtrado não contém denúncias do primeiro condomínio\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.content).to.have.lengthOf(page.totalElements);",
+              "  const protocols = page.content.map(item => item.protocol);",
+              "  [\"complaintProtocol\", \"secondComplaintProtocol\", \"k15SecurityProtocol\"].forEach(key => {",
+              "    pm.expect(protocols).not.to.include(pm.collectionVariables.get(key));",
+              "  });",
+              "  page.content.forEach(item => pm.expect(item.category).to.eql(\"NOISE\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "88. Verificar o limite de consultas públicas",
       "request": {
         "method": "GET",
         "url": "{{baseUrl}}/complaints/protocol/{{complaintProtocol}}",

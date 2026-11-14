@@ -8,7 +8,7 @@ Este documento define os principais endpoints, payloads (DTOs) e retornos da API
 1. Na raiz do projeto, com JDK 25 configurado, execute `./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. No PowerShell, use `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=setup"`. Espere a aplicação iniciar e mantenha o terminal aberto. Esse perfil usa H2 vazio; reiniciar a aplicação limpa os dados.
 2. No Postman, clique em **Import** e selecione a [coleção de exemplos](gestao-condominio.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
 3. Abra as requisições na ordem numérica e clique em **Send** em cada uma, ou use o executor da coleção. O login do síndico salva o token e o ID do condomínio; o cadastro da unidade salva seu ID. As chamadas seguintes usam esses valores automaticamente.
-4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. As requisições 32 a 37 testam o registro de denúncias com o token de Ana da unidade 101, já aprovada na requisição 14. Os passos 38 a 40 consultam o protocolo, 41 a 52 conferem as consultas administrativas e 53 a 67 validam a atualização de status, as providências e o histórico público. O passo 68 testa o limite de consultas públicas e deve ser executado por último. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
+4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. As requisições 32 a 37 testam o registro de denúncias com o token de Ana da unidade 101, já aprovada na requisição 14. Os passos 38 a 40 consultam o protocolo, 41 a 52 conferem as consultas administrativas e 53 a 67 validam a atualização de status, as providências e o histórico público. Os passos 68 a 87 validam os filtros K15, incluindo paginação, datas inválidas, resultado vazio e permissões; exigem a implementação K15 disponível no servidor. As datas são calculadas a partir dos registros no fuso de Brasília. O cenário com outro condomínio é opcional e exige uma fixture específica. O passo 88 testa o limite de consultas públicas e deve ser executado por último. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
 
 ## Endpoints disponíveis nesta versão
 
@@ -26,7 +26,7 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /complaints` | Bearer de morador aprovado | Corpo com `category` e `description`; `location` opcional. | 201 com protocolo e mensagem |
 | `GET /complaints/protocol/{protocol}` | Público | Protocolo retornado no cadastro | 200 com status e histórico público |
-| `GET /complaints` | Síndico | `page` e `size` opcionais | 200 com página do próprio condomínio |
+| `GET /complaints` | Síndico | Filtros opcionais `category`, `status`, `from` e `to`; paginação com `page` e `size` | 200 com página filtrada do próprio condomínio |
 | `GET /complaints/{id}` | Síndico | ID da denúncia | 200 com detalhes e providências internas |
 | `PATCH /complaints/{id}/status` | Síndico | `newStatus` e justificativa obrigatória na rejeição | 200 com a transição registrada |
 | `POST /complaints/{id}/actions` | Síndico | `actionDescription` | 201 com a providência registrada |
@@ -274,6 +274,79 @@ Consulta pública do andamento da denúncia pelo protocolo (Não requer autentic
       ]
     }
     ```
+
+### `GET /complaints`
+
+Lista as denúncias do condomínio identificado pelo token. Requer perfil `MANAGER`. Não recebe corpo de requisição.
+
+Os filtros são opcionais e podem ser combinados. Quando vários filtros são informados, a denúncia precisa atender a todos eles. Sem filtros, retorna a listagem paginada do próprio condomínio.
+
+| Parâmetro | Formato e comportamento |
+|---|---|
+| `category` | Categoria: `NOISE`, `SECURITY`, `COMMON_AREA_MISUSE`, `GARBAGE_VIOLATION`, `RULES_VIOLATION` ou `OTHER`. |
+| `status` | Status atual: `RECEIVED`, `UNDER_REVIEW`, `IN_PROGRESS`, `RESOLVED` ou `REJECTED`. |
+| `from` | Data inicial de registro, no formato `yyyy-MM-dd`. Inclui registros a partir de 00h00 desse dia. |
+| `to` | Data final de registro, no formato `yyyy-MM-dd`. Inclui o dia inteiro, até antes de 00h00 do dia seguinte. |
+| `page` | Índice da página, começando em zero. Padrão: `0`. Valores negativos são ajustados para `0`. |
+| `size` | Quantidade de itens por página. Padrão: `20`. Valores menores que `1` são ajustados para `1`; valores maiores que `100` são limitados a `100`. |
+
+Informe categorias e status em maiúsculas, conforme os valores listados.
+
+O período considera a data de registro (`createdAt`) no fuso `America/Sao_Paulo`. É possível informar apenas `from` ou apenas `to`; nesse caso, somente o limite informado é aplicado. Quando ambos são enviados, `from` deve ser anterior ou igual a `to`. Datas iguais selecionam um único dia.
+
+Os resultados são ordenados por `createdAt` decrescente, com desempate por `id` decrescente. Os totais da paginação consideram os filtros aplicados.
+
+**Exemplo com filtros combinados:**
+
+```http
+GET /api/v1/complaints?category=NOISE&status=UNDER_REVIEW&from=2026-11-01&to=2026-11-30&page=0&size=20
+Authorization: Bearer <token-do-sindico>
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "content": [
+    {
+      "id": 15,
+      "protocol": "550e8400-e29b-41d4-a716-446655440000",
+      "category": "NOISE",
+      "createdAt": "2026-11-10T12:00:00Z",
+      "status": "UNDER_REVIEW"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+Quando nenhuma denúncia corresponde aos filtros, a resposta continua sendo 200:
+
+```json
+{
+  "content": [],
+  "page": 0,
+  "size": 20,
+  "totalElements": 0,
+  "totalPages": 0
+}
+```
+
+**Erros dos filtros:**
+
+| Situação | Código | Campo em `validationErrors` | Mensagem |
+|---|---|---|---|
+| Categoria inválida, como `category=BANANA` | 400 | `category` | `Invalid value` |
+| Status inválido, como `status=FINISHED` | 400 | `status` | `Invalid value` |
+| Data inválida, como `from=banana` ou `to=2026-02-30` | 400 | `from` ou `to` | `Invalid value` |
+| Data inicial posterior à final | 400 | `periodValid` | `from must be on or before to` |
+
+Esses erros seguem o padrão de resposta da API, com `message: "Validation failed"` e os detalhes em `validationErrors`. O campo `periodValid` identifica a validação do intervalo; não é um parâmetro da requisição.
+
+Token ausente ou inválido retorna 401. Acesso com perfil de morador retorna 403. Os filtros não permitem consultar denúncias de outro condomínio.
 
 ### `GET /complaints/{id}`
 Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).

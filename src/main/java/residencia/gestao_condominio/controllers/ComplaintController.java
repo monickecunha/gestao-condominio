@@ -17,6 +17,7 @@ import residencia.gestao_condominio.dto.PageResponse;
 import residencia.gestao_condominio.services.ComplaintService;
 import residencia.gestao_condominio.security.ProtocolLookupLimiter;
 import residencia.gestao_condominio.dto.ComplaintTrackingResponse;
+import residencia.gestao_condominio.dto.ComplaintListFilter;
 
 @RestController
 @RequestMapping("/api/v1/complaints")
@@ -43,9 +44,10 @@ public class ComplaintController {
 
      @GetMapping
     public PageResponse<ComplaintSummaryResponse> list(@AuthenticationPrincipal Jwt jwt,
+                                                       @Valid @ModelAttribute ComplaintListFilter filter,
                                                        @RequestParam(defaultValue = "0") int page,
                                                        @RequestParam(defaultValue = "20") int size) {
-        return complaints.listForManager(condoId(jwt), page, size);
+       return complaints.listForManager(condoId(jwt), filter, page, size);
     }
 
     @GetMapping("/{id}")

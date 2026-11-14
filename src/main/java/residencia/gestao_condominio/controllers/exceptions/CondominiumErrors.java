@@ -32,7 +32,8 @@ public class CondominiumErrors {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiError> invalidFields(MethodArgumentNotValidException failure, HttpServletRequest request) {
         var errors = failure.getBindingResult().getFieldErrors().stream()
-                .map(error -> new FieldError(error.getField(), error.getDefaultMessage()))
+                .map(error -> new FieldError(error.getField(),
+                        error.isBindingFailure() ? "Invalid value" : error.getDefaultMessage()))
                 .toList();
         return response(HttpStatus.BAD_REQUEST, "Validation failed", request, errors);
     }
