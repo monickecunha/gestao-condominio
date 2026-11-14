@@ -1,5 +1,6 @@
 package residencia.gestao_condominio.security;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -45,6 +46,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(requests -> requests
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/login", "/api/v1/condominiums", "/api/v1/bindings").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/complaints/protocol/*").permitAll()
+                // The container re-dispatches sendError() responses to /error; without this they would be
+                // rejected as unauthenticated (401) and hide the original status (e.g. 400 for malformed JSON).
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .anyRequest().access(authorization))
             .exceptionHandling(errors -> errors
                 .authenticationEntryPoint((req, res, ex) -> SecurityErrors.write(req, res, 401))

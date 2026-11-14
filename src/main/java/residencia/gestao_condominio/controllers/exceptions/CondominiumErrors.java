@@ -4,6 +4,10 @@ import java.time.Instant;
 import java.util.List;
 
 import org.hibernate.exception.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +26,11 @@ import residencia.gestao_condominio.controllers.UnitController;
 import residencia.gestao_condominio.services.exceptions.BindingConflictException;
 import residencia.gestao_condominio.services.exceptions.TooManyRequestsException;
 
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class, ComplaintController.class})
 public class CondominiumErrors {
+    private static final Logger log = LoggerFactory.getLogger(CondominiumErrors.class);
+
     record FieldError(String field, String message) {}
     record ApiError(Instant timestamp, int status, String error, String message, String path,
                     List<FieldError> validationErrors) {}
@@ -42,7 +49,8 @@ public class CondominiumErrors {
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
-    ResponseEntity<ApiError> notFound(HttpServletRequest request) {
+    ResponseEntity<ApiError> notFound(EntityNotFoundException failure, HttpServletRequest request) {
+        log.debug("Resource not found on {} {}: {}", request.getMethod(), request.getRequestURI(), failure.getMessage());
         return response(HttpStatus.NOT_FOUND, "Resource not found", request, List.of());
     }
 
@@ -58,6 +66,8 @@ public class CondominiumErrors {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ApiError> persistenceError(DataIntegrityViolationException failure, HttpServletRequest request, HandlerMethod handler) {
+        log.warn("Data integrity violation on {} {}: {}", request.getMethod(), request.getRequestURI(),
+                failure.getMostSpecificCause().getMessage());
         if (failure.getCause() instanceof ConstraintViolationException violation
                 && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE) {
             if (handler.getBeanType() == ComplaintController.class) {
@@ -71,7 +81,7 @@ public class CondominiumErrors {
                     : "Condominium or manager already registered";
             return response(HttpStatus.CONFLICT, message, request, List.of());
         }
-        throw failure;
+        return response(HttpStatus.CONFLICT, "Request conflicts with existing data", request, List.of());
     }
 
     private ResponseEntity<ApiError> response(HttpStatus status, String message,

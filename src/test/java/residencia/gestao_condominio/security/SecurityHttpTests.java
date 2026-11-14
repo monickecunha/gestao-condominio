@@ -73,7 +73,7 @@ class SecurityHttpTests {
         assertEquals("RESIDENT", decoder.decode(login("22233344455")).getClaimAsString("role"));
         assertEquals(401, call("POST", "/auth/login", null, "{\"cpf\":\"11122233344\",\"password\":\"wrong\"}").statusCode());
         assertEquals(401, call("POST", "/auth/login", null, "{\"cpf\":\"unknown\",\"password\":\"wrong\"}").statusCode());
-        assertEquals(401, call("POST", "/auth/login", null, "{}").statusCode());
+        assertEquals(400, call("POST", "/auth/login", null, "{}").statusCode());
         var hash = users.findByCpf("11122233344").orElseThrow().getPassword();
         assertNotEquals("123456", hash);
         assertTrue(passwords.matches("123456", hash));

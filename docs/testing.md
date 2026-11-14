@@ -73,3 +73,11 @@ Veja [autenticação e autorização](k04_authentication_authorization.md) para 
 ```powershell
 .\mvnw.cmd "-Dtest=SecurityHttpTests" test
 ```
+
+## Formato de erros (ErrorHandlingHttpTests)
+
+A classe `ErrorHandlingHttpTests` sobe o servidor em porta aleatória (o dispatch para `/error` só existe com container real, por isso não usa MockMvc) e confere que 400, 401, 403, 404 e 415 chegam com o envelope da seção 1 do [contrato da API](api_contract.md). Inclui o caso de JSON malformado no login, que antes retornava 401.
+
+```powershell
+.\mvnw.cmd "-Dtest=ErrorHandlingHttpTests" test
+```

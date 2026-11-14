@@ -48,7 +48,7 @@ public class ComplaintService {
     public ComplaintTrackingResponse trackByProtocol(String protocol) {
 
         Complaint complaint = complaints.findByProtocol(protocol)
-                .orElseThrow(EntityNotFoundException::new);
+                .orElseThrow(() -> new EntityNotFoundException("Complaint not found for protocol: " + protocol));
 
         var items = history.findAllByComplaintIdOrderByChangedAtAsc(complaint.getId()).stream()
                 .map(h -> new StatusHistoryItem(
@@ -87,7 +87,8 @@ public class ComplaintService {
     @Transactional(readOnly = true)
     public ComplaintDetailResponse detailForManager(Long condoId, Long id) {
         Complaint c = complaints.findByIdAndCondominiumId(id, condoId)
-                .orElseThrow(EntityNotFoundException::new);
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Complaint not found for id: " + id + " in condominium: " + condoId));
         return new ComplaintDetailResponse(
                 c.getId(), c.getProtocol(), c.getCategory(), c.getStatus(),
                 c.getCreatedAt(), c.getDescription(), c.getLocation());

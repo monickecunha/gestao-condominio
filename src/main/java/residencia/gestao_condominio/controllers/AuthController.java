@@ -1,5 +1,6 @@
 package residencia.gestao_condominio.controllers;
 
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import residencia.gestao_condominio.dto.LoginRequest;
 import residencia.gestao_condominio.dto.LoginResponse;
@@ -15,7 +16,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest body) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest body) {
         return authService.login(body);
     }
 }

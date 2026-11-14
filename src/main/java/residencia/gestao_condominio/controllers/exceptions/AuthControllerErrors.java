@@ -3,6 +3,8 @@ package residencia.gestao_condominio.controllers.exceptions;
 import java.io.IOException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import residencia.gestao_condominio.controllers.AuthController;
 import residencia.gestao_condominio.security.exceptions.SecurityErrors;
 
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(assignableTypes = AuthController.class)
 public class AuthControllerErrors {
     @ExceptionHandler(BadCredentialsException.class)
