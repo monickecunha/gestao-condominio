@@ -8,6 +8,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import residencia.gestao_condominio.dto.ComplaintDetailResponse;
 import residencia.gestao_condominio.dto.ComplaintReceipt;
+import residencia.gestao_condominio.dto.ActionResponse;
+import residencia.gestao_condominio.dto.CreateActionRequest;
+import residencia.gestao_condominio.dto.UpdateComplaintStatusRequest;
 import residencia.gestao_condominio.dto.ComplaintSummaryResponse;
 import residencia.gestao_condominio.dto.CreateComplaintRequest;
 import residencia.gestao_condominio.dto.PageResponse;
@@ -48,6 +51,19 @@ public class ComplaintController {
     @GetMapping("/{id}")
     public ComplaintDetailResponse detail(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return complaints.detailForManager(condoId(jwt), id);
+    }
+
+    @PatchMapping("/{id}/status")
+    public ComplaintTrackingResponse.StatusHistoryItem updateStatus(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                                                   @Valid @RequestBody UpdateComplaintStatusRequest request) {
+        return complaints.updateStatus(condoId(jwt), id, request);
+    }
+
+    @PostMapping("/{id}/actions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ActionResponse registerAction(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                         @Valid @RequestBody CreateActionRequest request) {
+        return complaints.registerAction(condoId(jwt), id, Long.valueOf(jwt.getSubject()), request);
     }
 
     private Long condoId(Jwt jwt) {

@@ -55,6 +55,22 @@
     {
       "key": "complaintProtocol",
       "value": ""
+    },
+    {
+      "key": "secondComplaintProtocol",
+      "value": ""
+    },
+    {
+      "key": "managerComplaintId",
+      "value": ""
+    },
+    {
+      "key": "latestComplaintDate",
+      "value": ""
+    },
+    {
+      "key": "firstComplaintId",
+      "value": ""
     }
   ],
   "item": [
@@ -1187,7 +1203,8 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
-              "pm.test(\"Protocolos diferentes\", () => pm.expect(pm.response.json().protocol).not.to.eql(pm.collectionVariables.get(\"complaintProtocol\")));"
+              "pm.test(\"Protocolos diferentes\", () => pm.expect(pm.response.json().protocol).not.to.eql(pm.collectionVariables.get(\"complaintProtocol\")));",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"secondComplaintProtocol\", pm.response.json().protocol);"
             ]
           }
         }
@@ -1353,6 +1370,1182 @@
             "type": "text/javascript",
             "exec": [
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "38. Consultar denúncia pelo protocolo sem login",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/{{complaintProtocol}}",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Usa o protocolo salvo no passo 32 para consultar a denúncia recém-criada."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"A consulta pública retorna somente os campos de acompanhamento\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(Object.keys(data).sort()).to.eql([\"category\", \"createdAt\", \"protocol\", \"status\", \"statusHistory\", \"updatedAt\"]);",
+              "  pm.expect(data.protocol).to.eql(pm.variables.get(\"complaintProtocol\"));",
+              "  pm.expect(data.category).to.eql(\"NOISE\");",
+              "  pm.expect(data.status).to.eql(\"RECEIVED\");",
+              "  pm.expect(data.statusHistory).to.eql([]);",
+              "  pm.expect(Number.isFinite(Date.parse(data.createdAt))).to.eql(true);",
+              "  pm.expect(data.updatedAt).to.eql(data.createdAt);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "39. Consultar um protocolo inexistente",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/{{$guid}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Resposta genérica de recurso inexistente\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.message).to.eql(\"Resource not found\");",
+              "  pm.expect(error).not.to.have.property(\"statusHistory\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "40. Consultar um protocolo malformado",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/protocolo-invalido",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Resposta genérica de recurso inexistente\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.message).to.eql(\"Resource not found\");",
+              "  pm.expect(error).not.to.have.property(\"statusHistory\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "41. Conferir paginação padrão do síndico",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Página inicial com as duas denúncias dos passos 32 e 33\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(20);",
+              "  pm.expect(page.totalElements).to.eql(2);",
+              "  pm.expect(page.totalPages).to.eql(1);",
+              "  pm.expect(page.content.map(item => item.protocol)).to.eql([",
+              "    pm.collectionVariables.get(\"secondComplaintProtocol\"), pm.collectionVariables.get(\"complaintProtocol\")",
+              "  ]);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42. Conferir primeira página de denúncias",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?page=0&size=1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Resumo da denúncia esperada na página 0\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(1);",
+              "  pm.expect(page.totalElements).to.eql(2);",
+              "  pm.expect(page.totalPages).to.eql(2);",
+              "  pm.expect(page.content).to.have.lengthOf(1);",
+              "  const item = page.content[0];",
+              "  pm.expect(item).to.have.all.keys(\"id\", \"protocol\", \"category\", \"createdAt\", \"status\");",
+              "  pm.expect(item.id).to.be.a(\"number\").above(0);",
+              "  pm.expect(item.protocol).to.eql(pm.collectionVariables.get(\"secondComplaintProtocol\"));",
+              "  pm.expect(item.category).to.eql(\"NOISE\");",
+              "  pm.expect(item.status).to.eql(\"RECEIVED\");",
+              "  pm.expect(Number.isFinite(Date.parse(item.createdAt))).to.eql(true);",
+              "  pm.collectionVariables.set(\"managerComplaintId\", item.id);",
+              "  pm.collectionVariables.set(\"latestComplaintDate\", item.createdAt);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43. Conferir segunda página de denúncias",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?page=1&size=1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Resumo da denúncia esperada na página 1\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(1);",
+              "  pm.expect(page.size).to.eql(1);",
+              "  pm.expect(page.totalElements).to.eql(2);",
+              "  pm.expect(page.totalPages).to.eql(2);",
+              "  pm.expect(page.content).to.have.lengthOf(1);",
+              "  const item = page.content[0];",
+              "  pm.expect(item).to.have.all.keys(\"id\", \"protocol\", \"category\", \"createdAt\", \"status\");",
+              "  pm.expect(item.id).to.be.a(\"number\").above(0);",
+              "  pm.expect(item.protocol).to.eql(pm.collectionVariables.get(\"complaintProtocol\"));",
+              "  pm.expect(item.category).to.eql(\"NOISE\");",
+              "  pm.expect(item.status).to.eql(\"RECEIVED\");",
+              "  pm.expect(Number.isFinite(Date.parse(item.createdAt))).to.eql(true);",
+              "  pm.expect(Date.parse(item.createdAt)).to.be.at.most(Date.parse(pm.collectionVariables.get(\"latestComplaintDate\")));",
+              "  pm.collectionVariables.set(\"firstComplaintId\", item.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44. Conferir limites de paginação (mínimos)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?page=-1&size=0",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Parâmetros de página normalizados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(1);",
+              "  pm.expect(page.content).to.have.lengthOf(1);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "45. Conferir limites de paginação (máximo)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?size=101",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Parâmetros de página normalizados\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.page).to.eql(0);",
+              "  pm.expect(page.size).to.eql(100);",
+              "  pm.expect(page.content).to.have.lengthOf(2);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "46. Consultar detalhes da denúncia com local",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Detalhes correspondem à denúncia cadastrada no passo 33\", () => {",
+              "  const item = pm.response.json();",
+              "  pm.expect(item.id).to.eql(Number(pm.collectionVariables.get(\"managerComplaintId\")));",
+              "  pm.expect(item.protocol).to.eql(pm.collectionVariables.get(\"secondComplaintProtocol\"));",
+              "  pm.expect(item.category).to.eql(\"NOISE\");",
+              "  pm.expect(item.status).to.eql(\"RECEIVED\");",
+              "  pm.expect(item.createdAt).to.eql(pm.collectionVariables.get(\"latestComplaintDate\"));",
+              "  pm.expect(item.fullDescription).to.eql(\"Barulho após as 22h.\");",
+              "  pm.expect(item.location).to.eql(\"Corredor\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "47. Tentar listar denúncias como morador",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "48. Tentar acessar detalhes por ID como morador",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "49. Tentar listar denúncias sem autenticação",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "50. Tentar acessar detalhes por ID sem autenticação",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "51. Opcional: conferir lista do outro síndico",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?size=100",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherManagerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requer otherManagerToken válido no mesmo servidor e uma fixture com até 100 denúncias no segundo condomínio. O perfil padrão admite um único condomínio."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.variables.get(\"otherManagerToken\")) pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lista completa do outro condomínio exclui as duas denúncias\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.content).to.have.lengthOf(page.totalElements);",
+              "  const protocols = page.content.map(item => item.protocol);",
+              "  pm.expect(protocols).not.to.include(pm.collectionVariables.get(\"complaintProtocol\"));",
+              "  pm.expect(protocols).not.to.include(pm.collectionVariables.get(\"secondComplaintProtocol\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "52. Opcional: outro síndico tenta acessar detalhes por ID",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{otherManagerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "description": "Requer otherManagerToken válido no mesmo servidor e uma fixture com até 100 denúncias no segundo condomínio. O perfil padrão admite um único condomínio."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.variables.get(\"otherManagerToken\")) pm.execution.skipRequest();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "53. Impedir resolução direta",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"RESOLVED\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "54. Recusar atualização pelo morador",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{residentToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"UNDER_REVIEW\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "55. Abrir análise da denúncia com local",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"UNDER_REVIEW\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Abrir análise da denúncia com local\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.previousStatus).to.eql(\"RECEIVED\");",
+              "  pm.expect(data.nextStatus).to.eql(\"UNDER_REVIEW\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "56. Exigir login para registrar providência",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/actions",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"actionDescription\": \"Vistoria no corredor\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "57. Recusar providência em branco",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/actions",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"actionDescription\": \"   \"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "58. Registrar vistoria como síndico",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/actions",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"actionDescription\": \"Vistoria no corredor\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Registrar vistoria como síndico\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.actionDescription).to.eql(\"Vistoria no corredor\");",
+              "  pm.expect(data.registeredBy).to.eql(\"Maria\");",
+              "  pm.expect(Number.isFinite(Date.parse(data.executedAt))).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "59. Iniciar providências",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"IN_PROGRESS\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Iniciar providências\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.previousStatus).to.eql(\"UNDER_REVIEW\");",
+              "  pm.expect(data.nextStatus).to.eql(\"IN_PROGRESS\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "60. Resolver a denúncia",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"RESOLVED\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Resolver a denúncia\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.previousStatus).to.eql(\"IN_PROGRESS\");",
+              "  pm.expect(data.nextStatus).to.eql(\"RESOLVED\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "61. Impedir reabertura após resolução",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"UNDER_REVIEW\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "62. Conferir providência nos detalhes administrativos",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Conferir providência nos detalhes administrativos\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.status).to.eql(\"RESOLVED\");",
+              "  pm.expect(data.internalActions).to.have.lengthOf(1);",
+              "  pm.expect(data.internalActions[0].actionDescription).to.eql(\"Vistoria no corredor\");",
+              "  pm.expect(data.internalActions[0].registeredBy).to.eql(\"Maria\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "63. Acompanhar resolução pelo protocolo",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/{{secondComplaintProtocol}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Acompanhar resolução pelo protocolo\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.status).to.eql(\"RESOLVED\");",
+              "  pm.expect(data.statusHistory.map(h => h.previousStatus)).to.eql([\"RECEIVED\", \"UNDER_REVIEW\", \"IN_PROGRESS\"]);",
+              "  pm.expect(data.statusHistory.map(h => h.nextStatus)).to.eql([\"UNDER_REVIEW\", \"IN_PROGRESS\", \"RESOLVED\"]);",
+              "  pm.expect(data.updatedAt).to.eql(data.statusHistory[2].changedAt);",
+              "  pm.expect(data).not.to.have.property(\"internalActions\");",
+              "  pm.expect(pm.response.text()).not.to.include(\"Vistoria no corredor\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "64. Abrir análise da denúncia sem local",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{firstComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"UNDER_REVIEW\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Abrir análise da denúncia sem local\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.previousStatus).to.eql(\"RECEIVED\");",
+              "  pm.expect(data.nextStatus).to.eql(\"UNDER_REVIEW\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "65. Exigir justificativa para rejeitar",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{firstComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"REJECTED\",\n  \"justification\": \"   \"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "66. Rejeitar com motivo público",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/complaints/{{firstComplaintId}}/status",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "type": "string",
+              "key": "token",
+              "value": "{{managerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newStatus\": \"REJECTED\",\n  \"justification\": \"Ocorrência não confirmada\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Rejeitar com motivo público\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.previousStatus).to.eql(\"UNDER_REVIEW\");",
+              "  pm.expect(data.nextStatus).to.eql(\"REJECTED\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "67. Acompanhar rejeição pelo protocolo",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/{{complaintProtocol}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Acompanhar rejeição pelo protocolo\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.status).to.eql(\"REJECTED\");",
+              "  pm.expect(data.statusHistory).to.have.lengthOf(2);",
+              "  pm.expect(data.statusHistory[1].publicJustification).to.eql(\"Ocorrência não confirmada\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "68. Verificar o limite de consultas públicas",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/{{complaintProtocol}}",
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "Execute por último. O script envia dez consultas antes da requisição principal. Aguarde um minuto antes de repetir consultas públicas neste servidor."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const url = pm.variables.replaceIn(\"{{baseUrl}}/complaints/protocol/{{complaintProtocol}}\");",
+              "for (let i = 0; i < 10; i++) {",
+              "  pm.sendRequest({url, method: \"GET\"}, (error, response) => {",
+              "    pm.test(\"Consulta de preparação \" + (i + 1), () => {",
+              "      pm.expect(error).not.to.exist;",
+              "      pm.expect([200, 429]).to.include(response.code);",
+              "    });",
+              "  });",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 429\", () => pm.response.to.have.status(429));",
+              "pm.test(\"Consulta limitada não retorna dados da denúncia\", () => {",
+              "  const error = pm.response.json();",
+              "  pm.expect(error.status).to.eql(429);",
+              "  pm.expect(error).not.to.have.property(\"protocol\");",
+              "  pm.expect(error).not.to.have.property(\"statusHistory\");",
+              "});"
             ]
           }
         }

@@ -12,5 +12,6 @@ public record ComplaintDetailResponse(
         ComplaintStatus status,
         Instant createdAt,
         String fullDescription,
-        String location
+        String location,
+        java.util.List<ActionResponse> internalActions
 ) {}

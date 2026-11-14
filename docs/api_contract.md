@@ -8,7 +8,7 @@ Este documento define os principais endpoints, payloads (DTOs) e retornos da API
 1. Na raiz do projeto, com JDK 25 configurado, execute `./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. No PowerShell, use `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=setup"`. Espere a aplicação iniciar e mantenha o terminal aberto. Esse perfil usa H2 vazio; reiniciar a aplicação limpa os dados.
 2. No Postman, clique em **Import** e selecione a [coleção de exemplos](gestao-condominio.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
 3. Abra as requisições na ordem numérica e clique em **Send** em cada uma, ou use o executor da coleção. O login do síndico salva o token e o ID do condomínio; o cadastro da unidade salva seu ID. As chamadas seguintes usam esses valores automaticamente.
-4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. As requisições 32 a 37 testam o registro de denúncias com o token de Ana da unidade 101, já aprovada na requisição 14. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
+4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. As requisições 32 a 37 testam o registro de denúncias com o token de Ana da unidade 101, já aprovada na requisição 14. Os passos 38 a 40 consultam o protocolo, 41 a 52 conferem as consultas administrativas e 53 a 67 validam a atualização de status, as providências e o histórico público. O passo 68 testa o limite de consultas públicas e deve ser executado por último. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
 
 ## Endpoints disponíveis nesta versão
 
@@ -25,8 +25,11 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | `POST /bindings/{bindingId}/approve` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /complaints` | Bearer de morador aprovado | Corpo com `category` e `description`; `location` opcional. | 201 com protocolo e mensagem |
-
-As operações de gestão de vínculos e denúncias descritas adiante como previstas servem de referência para os próximos cartões.
+| `GET /complaints/protocol/{protocol}` | Público | Protocolo retornado no cadastro | 200 com status e histórico público |
+| `GET /complaints` | Síndico | `page` e `size` opcionais | 200 com página do próprio condomínio |
+| `GET /complaints/{id}` | Síndico | ID da denúncia | 200 com detalhes e providências internas |
+| `PATCH /complaints/{id}/status` | Síndico | `newStatus` e justificativa obrigatória na rejeição | 200 com a transição registrada |
+| `POST /complaints/{id}/actions` | Síndico | `actionDescription` | 201 com a providência registrada |
 
 ---
 
@@ -233,7 +236,7 @@ curl -i -X POST -H "Authorization: Bearer $TOKEN" \
 ### `POST /complaints`
 Registra uma denúncia no condomínio informado pelo token. Requer morador com vínculo aprovado no momento do envio. A descrição é obrigatória e deve conter texto; o local é opcional (até 255 caracteres). Categorias aceitas: `NOISE`, `SECURITY`, `COMMON_AREA_MISUSE`, `GARBAGE_VIOLATION`, `RULES_VIOLATION` e `OTHER`.
 
-A denúncia começa em `RECEIVED`. O registro guarda o condomínio e os dados da ocorrência, sem identificador do morador, unidade ou vínculo. A resposta contém um protocolo UUID v4 único e uma mensagem. Guarde o protocolo para o acompanhamento previsto na K08. Erros de entrada retornam 400, token ausente ou inválido retorna 401 e perfil ou vínculo sem permissão retorna 403.
+A denúncia começa em `RECEIVED`. O registro guarda o condomínio e os dados da ocorrência, sem identificador do morador, unidade ou vínculo. A resposta contém um protocolo UUID v4 único e uma mensagem. Guarde o protocolo para o acompanhamento público. Erros de entrada retornam 400, token ausente ou inválido retorna 401 e perfil ou vínculo sem permissão retorna 403.
 
 *   **Request Body:**
     ```json
@@ -251,7 +254,7 @@ A denúncia começa em `RECEIVED`. O registro guarda o condomínio e os dados da
     }
     ```
 
-### Previsto — `GET /complaints/protocol/{protocol}`
+### `GET /complaints/protocol/{protocol}`
 Consulta pública do andamento da denúncia pelo protocolo (Não requer autenticação).
 *   **Response (200 OK):** *Apenas campos públicos.*
     ```json
@@ -272,7 +275,7 @@ Consulta pública do andamento da denúncia pelo protocolo (Não requer autentic
     }
     ```
 
-### Previsto — `GET /complaints/{id}`
+### `GET /complaints/{id}`
 Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
 *   **Response (200 OK):** *Inclui dados completos.*
     ```json
@@ -284,9 +287,6 @@ Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
       "createdAt": "2026-11-02T10:00:00Z",
       "fullDescription": "Barulho excessivo de furadeira após as 22h.",
       "location": "Corredor do 5º andar, bloco B",
-      "attachments": [
-        { "imageId": 42, "url": "/api/v1/complaints/15/images/42" }
-      ],
       "internalActions": [
         {
           "actionDescription": "Notificação enviada ao morador do 501.",
@@ -297,7 +297,7 @@ Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
     }
     ```
 
-### Previsto — `PATCH /complaints/{id}/status`
+### `PATCH /complaints/{id}/status`
 Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).
 *   **Request Body:**
     ```json
@@ -306,7 +306,24 @@ Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).
       "justification": "Não foram encontradas evidências de barulho no horário citado."
     }
     ```
-*   **Response (200 OK):** Status atualizado.
+O fluxo permitido é `RECEIVED → UNDER_REVIEW → IN_PROGRESS → RESOLVED`. A transição para `REJECTED` só pode partir de `UNDER_REVIEW`. Uma transição inválida retorna 409. Status ausente ou desconhecido e rejeição sem justificativa preenchida retornam 400.
+
+Em caso de sucesso (200), a API retorna o item gravado no histórico. O campo `justification`, quando informado, é público e aparece no acompanhamento por protocolo. Use o endpoint de providências para registrar observações internas.
+
+```json
+{
+  "previousStatus": "UNDER_REVIEW",
+  "nextStatus": "REJECTED",
+  "changedAt": "2026-11-02T15:00:00Z",
+  "publicJustification": "Não foram encontradas evidências de barulho no horário citado."
+}
+```
+
+### `POST /complaints/{id}/actions`
+
+Envie `{"actionDescription":"Vistoria no corredor"}`. A descrição é obrigatória e deve conter texto. O servidor registra a data e identifica o responsável pelo token. A resposta 201 contém `actionDescription`, `executedAt` e `registeredBy`. O detalhe administrativo devolve essas providências em `internalActions`, em ordem de registro.
+
+Ambas as operações exigem token de síndico do condomínio da denúncia. Token ausente ou inválido retorna 401. Morador e síndico de outro condomínio recebem 403.
 
 ## Complemento K04
 

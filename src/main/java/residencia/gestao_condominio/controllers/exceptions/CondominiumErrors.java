@@ -20,6 +20,7 @@ import residencia.gestao_condominio.controllers.ComplaintController;
 import residencia.gestao_condominio.controllers.CondominiumController;
 import residencia.gestao_condominio.controllers.UnitController;
 import residencia.gestao_condominio.services.exceptions.BindingConflictException;
+import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
 import residencia.gestao_condominio.services.exceptions.TooManyRequestsException;
 
 @RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class, ComplaintController.class})
@@ -46,8 +47,8 @@ public class CondominiumErrors {
         return response(HttpStatus.NOT_FOUND, "Resource not found", request, List.of());
     }
 
-    @ExceptionHandler(BindingConflictException.class)
-    ResponseEntity<ApiError> bindingConflict(BindingConflictException failure, HttpServletRequest request) {
+    @ExceptionHandler({BindingConflictException.class, ComplaintStatusConflictException.class})
+    ResponseEntity<ApiError> conflict(RuntimeException failure, HttpServletRequest request) {
         return response(HttpStatus.CONFLICT, failure.getMessage(), request, List.of());
     }
 
