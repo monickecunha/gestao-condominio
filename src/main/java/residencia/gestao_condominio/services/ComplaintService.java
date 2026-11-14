@@ -1,37 +1,41 @@
 package residencia.gestao_condominio.services;
 
+import java.time.Instant;
+import java.time.ZoneId;    
+import java.time.temporal.ChronoUnit;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import residencia.gestao_condominio.entities.Action;
-import residencia.gestao_condominio.entities.ComplaintStatusHistory;
-import residencia.gestao_condominio.repositories.ActionRepository;
-import residencia.gestao_condominio.repositories.AdministratorRepository;
-import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
 import jakarta.persistence.EntityNotFoundException;
+import residencia.gestao_condominio.dto.ActionResponse;
 import residencia.gestao_condominio.dto.ComplaintDetailResponse;
 import residencia.gestao_condominio.dto.ComplaintReceipt;
-import residencia.gestao_condominio.dto.ActionResponse;
-import residencia.gestao_condominio.dto.CreateActionRequest;
-import residencia.gestao_condominio.dto.UpdateComplaintStatusRequest;
 import residencia.gestao_condominio.dto.ComplaintSummaryResponse;
 import residencia.gestao_condominio.dto.ComplaintTrackingResponse;
 import residencia.gestao_condominio.dto.ComplaintTrackingResponse.StatusHistoryItem;
+import residencia.gestao_condominio.dto.CreateActionRequest;
 import residencia.gestao_condominio.dto.CreateComplaintRequest;
 import residencia.gestao_condominio.dto.PageResponse;
+import residencia.gestao_condominio.dto.UpdateComplaintStatusRequest;
+import residencia.gestao_condominio.entities.Action;
 import residencia.gestao_condominio.entities.Complaint;
+import residencia.gestao_condominio.entities.ComplaintStatusHistory;
+import residencia.gestao_condominio.repositories.ActionRepository;
+import residencia.gestao_condominio.repositories.AdministratorRepository;
 import residencia.gestao_condominio.repositories.ComplaintRepository;
 import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepository;
 import residencia.gestao_condominio.repositories.CondominiumRepository;
+import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
+import residencia.gestao_condominio.dto.ComplaintListFilter;
 
 @Service
 public class ComplaintService {
 
     static final int MAX_PAGE_SIZE = 100;
+    static final ZoneId CONDOMINIUM_ZONE = ZoneId.of("America/Sao_Paulo");
 
     private final ComplaintRepository complaints;
     private final CondominiumRepository condominiums;
@@ -41,7 +45,7 @@ public class ComplaintService {
     private final AdministratorRepository administrators;
 
     public ComplaintService(ComplaintRepository complaints, CondominiumRepository condominiums, ComplaintStatusHistoryRepository history,
-                            ActionRepository actions, AdministratorRepository administrators) {
+            ActionRepository actions, AdministratorRepository administrators) {
         this.complaints = complaints;
         this.condominiums = condominiums;
         this.history = history;
@@ -88,13 +92,18 @@ public class ComplaintService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ComplaintSummaryResponse> listForManager(Long condoId, int page, int size) {
+    public PageResponse<ComplaintSummaryResponse> listForManager(Long condoId, ComplaintListFilter filter, int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         var pageable = PageRequest.of(safePage, safeSize,
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
-        var result = complaints.findAllByCondominiumId(condoId, pageable)
+        Instant start = filter.from() == null ? null
+                : filter.from().atStartOfDay(CONDOMINIUM_ZONE).toInstant();
+        Instant end = filter.to() == null ? null
+                : filter.to().plusDays(1).atStartOfDay(CONDOMINIUM_ZONE).toInstant();
+
+        var result = complaints.search(condoId, filter.category(), filter.status(), start, end, pageable)
                 .map(c -> new ComplaintSummaryResponse(
                         c.getId(), c.getProtocol(), c.getCategory(), c.getCreatedAt(), c.getStatus()));
         return PageResponse.from(result);
