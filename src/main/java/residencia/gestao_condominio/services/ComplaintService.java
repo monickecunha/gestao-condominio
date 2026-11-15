@@ -1,13 +1,17 @@
 package residencia.gestao_condominio.services;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;    
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.persistence.EntityNotFoundException;
 import residencia.gestao_condominio.dto.ActionResponse;
@@ -29,12 +33,16 @@ import residencia.gestao_condominio.repositories.ComplaintRepository;
 import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepository;
 import residencia.gestao_condominio.repositories.CondominiumRepository;
 import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
+import residencia.gestao_condominio.services.exceptions.InvalidComplaintImageException;
+import residencia.gestao_condominio.services.images.AttachmentStorage;
+import residencia.gestao_condominio.services.images.ImageSanitizer;
 import residencia.gestao_condominio.dto.ComplaintListFilter;
 
 @Service
 public class ComplaintService {
 
     static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_IMAGES = 3;
     static final ZoneId CONDOMINIUM_ZONE = ZoneId.of("America/Sao_Paulo");
 
     private final ComplaintRepository complaints;
@@ -43,25 +51,50 @@ public class ComplaintService {
 
     private final ActionRepository actions;
     private final AdministratorRepository administrators;
+    private final AttachmentStorage attachments;
+    private final ImageSanitizer imageSanitizer;
 
     public ComplaintService(ComplaintRepository complaints, CondominiumRepository condominiums, ComplaintStatusHistoryRepository history,
-            ActionRepository actions, AdministratorRepository administrators) {
+            ActionRepository actions, AdministratorRepository administrators, AttachmentStorage attachments,
+            ImageSanitizer imageSanitizer) {
         this.complaints = complaints;
         this.condominiums = condominiums;
         this.history = history;
         this.actions = actions;
         this.administrators = administrators;
+        this.attachments = attachments;
+        this.imageSanitizer = imageSanitizer;
     }
 
     @Transactional
     public ComplaintReceipt register(Long condoId, CreateComplaintRequest request) {
+        return register(condoId, request, List.of());
+    }
+
+    @Transactional
+    public ComplaintReceipt register(Long condoId, CreateComplaintRequest request, List<MultipartFile> files) {
+        if (files.size() > MAX_IMAGES) {
+            throw new InvalidComplaintImageException("A complaint accepts up to three images");
+        }
+        var images = files.stream().map(this::sanitizeImage).toList();
         var complaint = new Complaint();
         complaint.setCondominium(condominiums.getReferenceById(condoId));
         complaint.setCategory(request.category());
         complaint.setDescription(request.description());
         complaint.setLocation(request.location());
         var saved = complaints.save(complaint);
+        for (var image : images) {
+            attachments.store(saved, image.mimeType(), image.bytes());
+        }
         return new ComplaintReceipt(saved.getProtocol(), "Complaint registered successfully.");
+    }
+
+    private ImageSanitizer.SanitizedImage sanitizeImage(MultipartFile file) {
+        try {
+            return imageSanitizer.sanitize(file.getContentType(), file.getBytes());
+        } catch (IOException failure) {
+            throw new InvalidComplaintImageException("Could not read image");
+        }
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
@@ -113,10 +146,21 @@ public class ComplaintService {
     public ComplaintDetailResponse detailForManager(Long condoId, Long id) {
         Complaint c = complaints.findByIdAndCondominiumId(id, condoId)
                 .orElseThrow(EntityNotFoundException::new);
+        var images = attachments.listIds(condoId, id).stream()
+                .map(imageId -> new ComplaintDetailResponse.ImageLink(
+                        imageId, "/api/v1/complaints/" + id + "/images/" + imageId))
+                .toList();
         return new ComplaintDetailResponse(
                 c.getId(), c.getProtocol(), c.getCategory(), c.getStatus(),
                 c.getCreatedAt(), c.getDescription(), c.getLocation(),
+                images,
                 actions.findAllByComplaintIdOrderByCreatedAtAscIdAsc(id).stream().map(ActionResponse::from).toList());
+    }
+
+    @Transactional(readOnly = true)
+    public AttachmentStorage.StoredImage imageForManager(Long condoId, Long complaintId, Long imageId) {
+        return attachments.find(condoId, complaintId, imageId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
     }
 
     @Transactional

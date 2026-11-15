@@ -1,11 +1,18 @@
 package residencia.gestao_condominio.controllers;
 
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.util.List;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import residencia.gestao_condominio.dto.ComplaintDetailResponse;
 import residencia.gestao_condominio.dto.ComplaintReceipt;
 import residencia.gestao_condominio.dto.ActionResponse;
@@ -15,6 +22,7 @@ import residencia.gestao_condominio.dto.ComplaintSummaryResponse;
 import residencia.gestao_condominio.dto.CreateComplaintRequest;
 import residencia.gestao_condominio.dto.PageResponse;
 import residencia.gestao_condominio.services.ComplaintService;
+import residencia.gestao_condominio.services.exceptions.InvalidComplaintImageException;
 import residencia.gestao_condominio.security.ProtocolLookupLimiter;
 import residencia.gestao_condominio.dto.ComplaintTrackingResponse;
 import residencia.gestao_condominio.dto.ComplaintListFilter;
@@ -36,6 +44,19 @@ public class ComplaintController {
          return complaints.register(condoId(jwt), request);
     }
 
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ComplaintReceipt registerWithImages(@AuthenticationPrincipal Jwt jwt,
+                                               @Valid @RequestPart("complaint") CreateComplaintRequest request,
+                                               @RequestPart(name = "images", required = false) List<MultipartFile> images,
+                                               HttpServletRequest multipart) throws IOException, ServletException {
+        var files = images == null ? List.<MultipartFile>of() : images;
+        if (multipart.getParts().size() != 1 + files.size()) {
+            throw new InvalidComplaintImageException("Send one complaint part and optional images files");
+        }
+        return complaints.register(condoId(jwt), request, files);
+    }
+
      @GetMapping("/protocol/{protocol}")
     public ComplaintTrackingResponse track(@PathVariable String protocol, HttpServletRequest request) {
          limiter.check(request.getRemoteAddr());
@@ -53,6 +74,16 @@ public class ComplaintController {
     @GetMapping("/{id}")
     public ComplaintDetailResponse detail(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return complaints.detailForManager(condoId(jwt), id);
+    }
+
+    @GetMapping("/{id}/images/{imageId}")
+    public ResponseEntity<byte[]> image(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+                                        @PathVariable Long imageId) {
+        var image = complaints.imageForManager(condoId(jwt), id, imageId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(image.mimeType()))
+                .cacheControl(CacheControl.noStore())
+                .body(image.bytes());
     }
 
     @PatchMapping("/{id}/status")
