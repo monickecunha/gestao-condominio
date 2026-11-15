@@ -296,7 +296,7 @@
             {
               "key": "images",
               "type": "file",
-              "src": "imagem-exemplo.png",
+              "src": "sample-image.png",
               "contentType": "image/png"
             }
           ]
@@ -346,7 +346,7 @@
             {
               "key": "images",
               "type": "file",
-              "src": "imagem-exemplo.png",
+              "src": "sample-image.png",
               "contentType": "image/jpeg"
             }
           ]
@@ -391,25 +391,25 @@
             {
               "key": "images",
               "type": "file",
-              "src": "imagem-exemplo.png",
+              "src": "sample-image.png",
               "contentType": "image/png"
             },
             {
               "key": "images",
               "type": "file",
-              "src": "imagem-exemplo.png",
+              "src": "sample-image.png",
               "contentType": "image/png"
             },
             {
               "key": "images",
               "type": "file",
-              "src": "imagem-exemplo.png",
+              "src": "sample-image.png",
               "contentType": "image/png"
             },
             {
               "key": "images",
               "type": "file",
-              "src": "imagem-exemplo.png",
+              "src": "sample-image.png",
               "contentType": "image/png"
             }
           ]

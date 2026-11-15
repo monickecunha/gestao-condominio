@@ -1,0 +1,768 @@
+{
+  "info": {
+    "name": "K17 — Privacidade e proteção contra abuso",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Execute uma iteração, em ordem, com H2 vazio e cotas padrão. Duração aproximada: 2–3 minutos; passos 13 e 18 aguardam 61 segundos. Veja README.md."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    },
+    {
+      "key": "residentToken",
+      "value": ""
+    },
+    {
+      "key": "condoId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "anaBindingId",
+      "value": ""
+    },
+    {
+      "key": "complaintProtocol",
+      "value": ""
+    },
+    {
+      "key": "managerComplaintId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Preparação",
+      "item": [
+        {
+          "name": "01. Cadastrar condomínio e síndico",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/condominiums",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"condominium\": {\n    \"name\": \"Residencial Parque\"\n  },\n  \"manager\": {\n    \"name\": \"Maria\",\n    \"cpf\": \"12345678901\",\n    \"password\": \"teste-local\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "[\"managerToken\", \"condoId\", \"unitId\", \"anaBindingId\", \"residentToken\", \"complaintProtocol\", \"secondComplaintProtocol\", \"managerComplaintId\", \"latestComplaintDate\", \"firstComplaintId\", \"k15SecurityProtocol\", \"k15From\", \"k15To\", \"k15After\"].forEach(key => pm.collectionVariables.unset(key));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Fazer login como síndico",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cpf\": \"12345678901\",\n  \"password\": \"teste-local\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(\"managerToken\", data.token);",
+                  "  pm.collectionVariables.set(\"condoId\", data.condoId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Criar unidade 101",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/condominiums/{{condoId}}/units",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": \"101\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(\"unitId\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Solicitar vínculo de morador",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/bindings",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana\",\n  \"cpf\": \"44455566677\",\n  \"password\": \"teste-morador\",\n  \"unitId\": {{unitId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) pm.collectionVariables.set(\"anaBindingId\", pm.response.json().bindingId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05. Aprovar Ana",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/bindings/{{anaBindingId}}/approve",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06. Fazer login como morador aprovado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cpf\": \"44455566677\",\n  \"password\": \"teste-morador\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.collectionVariables.set(\"residentToken\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07. Registrar texto malicioso como dado privado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/complaints",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "type": "string",
+                  "key": "token",
+                  "value": "{{residentToken}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"category\": \"NOISE\", \"description\": \"<script>alert('k17-private')</script> ' OR 1=1 --\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test(\"Recibo com protocolo UUID v4\", () => {",
+                  "    pm.expect(Object.keys(data).sort()).to.eql([\"message\", \"protocol\"]);",
+                  "    pm.expect(data.protocol).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);",
+                  "  });",
+                  "  pm.collectionVariables.set(\"complaintProtocol\", data.protocol);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Privacidade e entradas inválidas",
+      "item": [
+        {
+          "name": "08. Conferir lista administrativa e salvar ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const d=pm.response.json(); pm.test(\"Somente uma denúncia\",()=>pm.expect(d.totalElements).to.eql(1)); if(d.content.length) pm.collectionVariables.set(\"managerComplaintId\",d.content[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09. Conferir detalhe privado sem identificação do autor",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Texto preservado como dado e sem CPF\",()=>{pm.expect(pm.response.json().fullDescription).to.eql(\"<script>alert('k17-private')</script> ' OR 1=1 --\"); pm.expect(pm.response.text()).not.to.include(\"44455566677\");});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Conferir campos públicos do protocolo",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints/protocol/{{complaintProtocol}}",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Somente campos públicos\",()=>{const d=pm.response.json(); pm.expect(Object.keys(d)).to.have.lengthOf(6); [\"fullDescription\",\"description\",\"location\",\"attachments\",\"internalActions\",\"cpf\",\"userId\",\"unitId\"].forEach(k=>pm.expect(d).not.to.have.property(k)); pm.expect(pm.response.text()).not.to.include(\"k17-private\");});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Negar detalhe administrativo ao morador",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints/{{managerComplaintId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{residentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Recusar tipo inválido no login sem ecoar dados",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cpf\": \"44455566677\", \"password\": \"teste-morador\", \"condoId\": \"k17-private\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Erro genérico sem dados enviados\",()=>{pm.expect(pm.response.json().message).to.eql(\"Invalid request body\"); [\"44455566677\",\"teste-morador\",\"k17-private\"].forEach(v=>pm.expect(pm.response.text()).not.to.include(v));});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Limites e recuperação",
+      "item": [
+        {
+          "name": "13. Esgotar login e ignorar IP forjado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cpf\": \"44455566677\", \"password\": \"senha-incorreta\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Aguarda expiração das cotas anteriores; não reduzir.",
+                  "setTimeout(() => {}, 61000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "",
+                  "function limited(r) {",
+                  " pm.expect(r.code).to.eql(429);",
+                  " pm.expect(r.headers.get('Retry-After')).to.eql('60');",
+                  " pm.expect(r.headers.get('Cache-Control')).to.include('no-store');",
+                  " pm.expect(r.json().message).to.eql('Too many requests. Try again later.');",
+                  " pm.expect(r.json().validationErrors).to.eql([]);",
+                  "}",
+                  "function burst(i, quota, make, normal) {",
+                  " const req=make(i);",
+                  " req.url=pm.variables.replaceIn(req.url);",
+                  " req.header=Object.assign({},req.header,{'X-Forwarded-For':'192.0.2.'+i,'Forwarded':'for=192.0.2.'+i});",
+                  " pm.sendRequest(req,(err,r)=>{",
+                  "  pm.test('Tentativa '+i+' de '+(quota+1),()=>{pm.expect(err).to.eql(null); if(i>quota) limited(r); else pm.expect(r.code).to.eql(normal);});",
+                  "  if(!err && i<=quota) burst(i+1,quota,make,normal);",
+                  " });",
+                  "}",
+                  "burst(2,30,()=>({url:'{{baseUrl}}/auth/login',method:'POST',header:{'Content-Type':'application/json'},body:{mode:'raw',raw:JSON.stringify({cpf:'44455566677',password:'senha-incorreta'})}}),401);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14. Esgotar denúncias e bloquear envio autenticado",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/complaints",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "",
+                  "function limited(r) {",
+                  " pm.expect(r.code).to.eql(429);",
+                  " pm.expect(r.headers.get('Retry-After')).to.eql('60');",
+                  " pm.expect(r.headers.get('Cache-Control')).to.include('no-store');",
+                  " pm.expect(r.json().message).to.eql('Too many requests. Try again later.');",
+                  " pm.expect(r.json().validationErrors).to.eql([]);",
+                  "}",
+                  "function burst(i, quota, make, normal) {",
+                  " const req=make(i);",
+                  " req.url=pm.variables.replaceIn(req.url);",
+                  " req.header=Object.assign({},req.header,{'X-Forwarded-For':'192.0.2.'+i,'Forwarded':'for=192.0.2.'+i});",
+                  " pm.sendRequest(req,(err,r)=>{",
+                  "  pm.test('Tentativa '+i+' de '+(quota+1),()=>{pm.expect(err).to.eql(null); if(i>quota) limited(r); else pm.expect(r.code).to.eql(normal);});",
+                  "  if(!err && i<=quota) burst(i+1,quota,make,normal);",
+                  " });",
+                  "}",
+                  "burst(2,10,i=>({url:'{{baseUrl}}/complaints',method:'POST',header:Object.assign({'Content-Type':'application/json'},i>10?{Authorization:'Bearer '+pm.collectionVariables.get('residentToken')}:{}),body:{mode:'raw',raw:JSON.stringify({category:'NOISE',description:'Envio bloqueado K17'})}}),401);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15. Compartilhar cota de cadastros",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/bindings",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "function limited(r) {",
+                  " pm.expect(r.code).to.eql(429);",
+                  " pm.expect(r.headers.get('Retry-After')).to.eql('60');",
+                  " pm.expect(r.headers.get('Cache-Control')).to.include('no-store');",
+                  " pm.expect(r.json().message).to.eql('Too many requests. Try again later.');",
+                  " pm.expect(r.json().validationErrors).to.eql([]);",
+                  "}",
+                  "function burst(i, quota, make, normal) {",
+                  " const req=make(i);",
+                  " req.url=pm.variables.replaceIn(req.url);",
+                  " req.header=Object.assign({},req.header,{'X-Forwarded-For':'192.0.2.'+i,'Forwarded':'for=192.0.2.'+i});",
+                  " pm.sendRequest(req,(err,r)=>{",
+                  "  pm.test('Tentativa '+i+' de '+(quota+1),()=>{pm.expect(err).to.eql(null); if(i>quota) limited(r); else pm.expect(r.code).to.eql(normal);});",
+                  "  if(!err && i<=quota) burst(i+1,quota,make,normal);",
+                  " });",
+                  "}",
+                  "burst(2,20,i=>({url:'{{baseUrl}}'+(i>20?'/bindings/additional':i%2?'/bindings':'/condominiums'),method:'POST',header:{'Content-Type':'application/json',Authorization:'Bearer '+pm.collectionVariables.get('residentToken')},body:{mode:'raw',raw:'{}'}}),400);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16. Limitar consultas de protocolos inexistentes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints/protocol/k17-inexistente",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "",
+                  "function limited(r) {",
+                  " pm.expect(r.code).to.eql(429);",
+                  " pm.expect(r.headers.get('Retry-After')).to.eql('60');",
+                  " pm.expect(r.headers.get('Cache-Control')).to.include('no-store');",
+                  " pm.expect(r.json().message).to.eql('Too many requests. Try again later.');",
+                  " pm.expect(r.json().validationErrors).to.eql([]);",
+                  "}",
+                  "function burst(i, quota, make, normal) {",
+                  " const req=make(i);",
+                  " req.url=pm.variables.replaceIn(req.url);",
+                  " req.header=Object.assign({},req.header,{'X-Forwarded-For':'192.0.2.'+i,'Forwarded':'for=192.0.2.'+i});",
+                  " pm.sendRequest(req,(err,r)=>{",
+                  "  pm.test('Tentativa '+i+' de '+(quota+1),()=>{pm.expect(err).to.eql(null); if(i>quota) limited(r); else pm.expect(r.code).to.eql(normal);});",
+                  "  if(!err && i<=quota) burst(i+1,quota,make,normal);",
+                  " });",
+                  "}",
+                  "burst(2,10,()=>({url:'{{baseUrl}}/complaints/protocol/k17-inexistente',method:'GET'}),404);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17. Confirmar que envio bloqueado não criou denúncia",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Nenhuma denúncia extra\",()=>pm.expect(pm.response.json().totalElements).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18. Recuperar consulta após expiração",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/complaints/protocol/k17-inexistente",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Aguarda expiração das cotas anteriores; não reduzir.",
+                  "setTimeout(() => {}, 61000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

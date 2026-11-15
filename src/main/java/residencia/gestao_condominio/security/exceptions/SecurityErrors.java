@@ -15,7 +15,7 @@ public final class SecurityErrors {
         String path = request.getRequestURI().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "").replace("\r", "");
         response.getWriter().write("{\"timestamp\":\"" + Instant.now() + "\",\"status\":" + status
             + ",\"error\":\"" + HttpStatus.valueOf(status).getReasonPhrase()
-            + "\",\"message\":\"" + (status == 401 ? "Invalid or missing credentials" : "Access denied")
+            + "\",\"message\":\"" + (status == 401 ? "Invalid or missing credentials" : status == 429 ? "Too many requests. Try again later." : "Access denied")
             + "\",\"path\":\"" + path + "\",\"validationErrors\":[]}");
     }
 }

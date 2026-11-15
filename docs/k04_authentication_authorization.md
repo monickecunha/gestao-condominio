@@ -23,7 +23,7 @@ Um vínculo pendente permite fazer login. Registrar denúncia exige um vínculo 
 | POST `/api/v1/condominiums` | Cadastro inicial público (K05); instalação já cadastrada retorna 409 |
 | GET `/api/v1/complaints/protocol/{protocol}` | Público; a implementação K08 deve retornar apenas campos públicos |
 | POST `/api/v1/complaints` | RESIDENT com vínculo APPROVED atual no condomínio do token |
-| GET `/api/v1/complaints` | MANAGER; a implementação deve consultar `findAllByCondominiumId` usando o condomínio do token |
+| GET `/api/v1/complaints` | MANAGER; listagem e filtros restritos ao condomínio do token |
 | GET `/api/v1/complaints/{id}` | MANAGER do condomínio da denúncia |
 | PATCH `/api/v1/complaints/{id}/status` | MANAGER do condomínio da denúncia |
 | POST `/api/v1/complaints/{id}/actions` | MANAGER do condomínio da denúncia |
@@ -31,6 +31,7 @@ Um vínculo pendente permite fazer login. Registrar denúncia exige um vínculo 
 | GET/POST `/api/v1/condominiums/{condoId}/units` | MANAGER do condomínio indicado |
 | GET `/api/v1/bindings` | MANAGER; lista somente pedidos pendentes do condomínio do token |
 | POST `/api/v1/bindings/{id}/approve` ou `/reject` | MANAGER do condomínio da unidade vinculada |
+| POST `/api/v1/bindings/additional` | RESIDENT; o serviço exige responsável aprovado da unidade no condomínio do token |
 | Outras rotas | Negadas por padrão; ampliar explicitamente ao implementar os demais cartões |
 
 Sem autenticação válida: 401. Perfil/condomínio/vínculo sem permissão: 403. Token inválido, adulterado ou expirado: 401. Erros de segurança usam o envelope do contrato HTTP. Recursos de outro condomínio e IDs inexistentes recebem a mesma negativa. As verificações usam o banco em cada requisição. Para listas e criações, os serviços devem derivar o condomínio do JWT, nunca confiar em IDs enviados no corpo ou parâmetros. A denúncia deve continuar sem referência ao usuário/unidade.
@@ -43,3 +44,7 @@ A entidade Condominium do MVP restringe o banco a um condomínio. Somente no sch
 
 Executar: `.\mvnw.cmd "-Dtest=SecurityHttpTests" test` ou toda a suíte com `.\mvnw.cmd verify` usando JDK 25 ou superior compatível.
 
+
+## Proteção contra abuso (K17)
+
+Login, cadastro, registro de denúncias e consulta pública possuem cotas temporárias por origem. O retorno 429 inclui `Retry-After: 60`. Consulte limites, precedência dos erros e configurações no [contrato HTTP](api_contract.md#proteção-contra-abuso-k17). As cotas não persistem associação entre usuário e denúncia. Logs SQL, parâmetros JDBC e access log permanecem desabilitados na configuração padrão.

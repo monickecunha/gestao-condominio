@@ -6,7 +6,7 @@ Este documento define os principais endpoints, payloads (DTOs) e retornos da API
 ## Teste local no Postman
 
 1. Na raiz do projeto, com JDK 25 configurado, execute `./mvnw spring-boot:run -Dspring-boot.run.profiles=setup`. No PowerShell, use `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=setup"`. Espere a aplicação iniciar e mantenha o terminal aberto. Esse perfil usa H2 vazio; reiniciar a aplicação limpa os dados.
-2. No Postman, clique em **Import** e selecione a [coleção de exemplos](gestao-condominio.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
+2. No Postman, clique em **Import** e selecione a [coleção de exemplos](condominium-management.postman_collection.json) da pasta `docs`. A variável da coleção `baseUrl` começa em `http://localhost:8080/api/v1`. Se iniciou em outra porta, ajuste essa variável.
 3. Abra as requisições na ordem numérica e clique em **Send** em cada uma, ou use o executor da coleção. O login do síndico salva o token e o ID do condomínio; o cadastro da unidade salva seu ID. As chamadas seguintes usam esses valores automaticamente.
 4. Confira a sequência: cadastro inicial (201), login do síndico (200), lista vazia (200), criação da unidade (201), lista com a unidade (200), fila vazia (200), pedidos de Ana e Bruno (201), fila com ambos (200), login do morador (200) e repetição do pedido (409). As requisições 12 a 16 verificam autoaprovação (403), prioridade de Ana (409 ao tentar Bruno), aprovação de Ana (204), fila somente com Bruno (200) e aprovação repetida (409). As requisições 17 a 31 exercitam a rejeição em uma segunda unidade. As requisições 32 a 37 testam o registro de denúncias com o token de Ana da unidade 101, já aprovada na requisição 14. Os passos 38 a 40 consultam o protocolo, 41 a 52 conferem as consultas administrativas e 53 a 67 validam a atualização de status, as providências e o histórico público. Os passos 68 a 87 validam os filtros K15, incluindo paginação, datas inválidas, resultado vazio e permissões; exigem a implementação K15 disponível no servidor. As datas são calculadas a partir dos registros no fuso de Brasília. O cenário com outro condomínio é opcional e exige uma fixture específica. O passo 88 testa o limite de consultas públicas e deve ser executado por último. Para repetir desde o primeiro passo, reinicie o perfil `setup`.
 
@@ -56,9 +56,34 @@ As respostas de erro da API usam este formato, inclusive o erro 413 por excesso 
 
 ---
 
+## Proteção contra abuso (K17)
+
+Os limites abaixo usam janelas fixas de um minuto por origem de rede (`remoteAddr`), em memória e por instância. Cada grupo tem uma cota independente. Todas as tentativas contam, inclusive entradas inválidas, falhas de autenticação e envios recusados. Nas rotas POST, a verificação ocorre antes de autenticar e interpretar o corpo; por isso, após esgotar a cota, 429 tem precedência sobre 400/401/403.
+
+| Grupo | Rotas | Limite padrão por minuto |
+|---|---|---|
+| Login | `POST /auth/login` | 30 tentativas |
+| Denúncias | `POST /complaints`, JSON e multipart compartilhando a mesma cota | 10 tentativas |
+| Cadastros | `POST /condominiums`, `POST /bindings` e `POST /bindings/additional`, compartilhando a mesma cota | 20 tentativas |
+| Acompanhamento público | `GET /complaints/protocol/{protocol}`, inclusive protocolos inexistentes | 10 consultas |
+
+Ao exceder o limite, a API retorna **429 Too Many Requests**, com `Retry-After: 60`, `Cache-Control: no-store`, `message: "Too many requests. Try again later."` e `validationErrors: []` no envelope padrão. Aguarde 60 segundos antes de tentar novamente. Tentativas bloqueadas não prolongam a janela nem chegam ao cadastro da denúncia.
+
+Os limites de login, denúncias e cadastros podem ser ajustados por `app.security.rate-limit.login`, `app.security.rate-limit.complaints` e `app.security.rate-limit.registrations`, respectivamente; os valores devem ser positivos. O limite de acompanhamento permanece em 10/minuto. Reiniciar a aplicação limpa os contadores.
+
+As cotas não guardam CPF, token, usuário, condomínio, conteúdo ou protocolo de denúncia. Cada grupo armazena no máximo 10.000 origens; se a capacidade estiver ocupada por janelas ativas, novas origens recebem 429 até haver espaço. Entradas expiradas são removidas periodicamente, em até aproximadamente mais um minuto. Nenhuma dessas informações é persistida no H2 ou registrada nos logs.
+
+Na execução local, cabeçalhos `Forwarded` e `X-Forwarded-For` enviados pelo cliente não alteram a origem usada nos limites. Pessoas que compartilham o mesmo IP também compartilham as cotas. Uma implantação com proxy ou múltiplas instâncias exige política específica de proxies confiáveis e limites compartilhados; a configuração do MVP é local, de uma instância.
+
+Veja as evidências de privacidade e os comandos de testes em [K17 — Privacidade e proteção contra abuso](k17_privacy_abuse_protection.md).
+
+---
+
 ## 2. Autenticação (Auth)
 
 ### `POST /auth/login`
+JSON malformado ou tipos incompatíveis retornam 400 com `message: "Invalid request body"`, sem reproduzir credenciais ou detalhes internos. Tentativas em excesso retornam 429 conforme a seção K17.
+
 Autentica um usuário (Síndico ou Morador) e retorna o token JWT. Para o morador, vínculos rejeitados são desconsiderados na seleção do condomínio, inclusive quando o pedido informa `condoId`. Se todos os vínculos no condomínio estiverem rejeitados, o login com credenciais válidas retorna `403` sem token.
 *   **Request Body:**
     ```json
@@ -286,7 +311,7 @@ por arquivo. O envio apenas em JSON continua disponível.
 ```bash
 curl -i -H "Authorization: Bearer $RESIDENT_TOKEN" \
   -F 'complaint={"category":"NOISE","description":"Barulho no corredor."};type=application/json' \
-  -F 'images=@docs/card-collections/k14/imagem-exemplo.png;type=image/png' \
+  -F 'images=@docs/card-collections/k14/sample-image.png;type=image/png' \
   http://localhost:8080/api/v1/complaints
 ```
 
@@ -308,6 +333,9 @@ Veja o [roteiro Postman do K14](card-collections/k14/README.md).
 
 ### `GET /complaints/protocol/{protocol}`
 Consulta pública do andamento da denúncia pelo protocolo (Não requer autenticação).
+
+Protocolo inexistente ou malformado retorna **404**, com `message: "Resource not found"`, sem dados da denúncia. A consulta é limitada a **10 tentativas por minuto por origem**, incluindo protocolos não encontrados; exceder a cota retorna **429**, conforme a seção K17. A resposta pública não inclui descrição, local, anexos, providências internas ou identificação do autor.
+
 *   **Response (200 OK):** *Apenas campos públicos.*
     ```json
     {

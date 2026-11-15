@@ -86,3 +86,23 @@ acesso. Execute a classe na raiz do projeto.
 
 Para executar as chamadas manualmente ou pelo Postman CLI, use o
 [roteiro independente do K14](card-collections/k14/README.md).
+
+## Privacidade e proteção contra abuso (K17)
+
+Execute com JDK 25 e H2 isolado:
+
+```bash
+./mvnw -Dtest=RequestWindowTests,PrivacyAbuseHttpTests,ComplaintImagesHttpTests,SecurityHttpTests test
+./mvnw clean verify
+```
+
+No PowerShell, coloque o argumento dos testes entre aspas:
+
+```powershell
+.\mvnw.cmd "-Dtest=RequestWindowTests,PrivacyAbuseHttpTests,ComplaintImagesHttpTests,SecurityHttpTests" test
+.\mvnw.cmd clean verify
+```
+
+O roteiro e a matriz de evidências estão em [K17](k17_privacy_abuse_protection.md). Testes HTTP de outros cards devem isolar seus contadores por cenário para não consumir a cota do cenário seguinte. Não desabilite os limites da aplicação para validar K17.
+
+Para testes manuais ou via Newman, use a [coleção independente da K17](card-collections/k17/README.md). Ela inclui preparação, verificação de privacidade e limites com recuperação após expiração.

@@ -1,6 +1,6 @@
 # K14 — Envio e recuperação de imagens
 
-O roteiro usa um servidor local com H2 vazio e uma [imagem PNG fictícia](imagem-exemplo.png).
+O roteiro usa um servidor local com H2 vazio e uma [imagem PNG fictícia](sample-image.png).
 Inicie a aplicação com o perfil `setup`. Reinicie o servidor para repetir a coleção desde o
 primeiro passo.
 
@@ -18,7 +18,7 @@ postman collection run k14-complaint-images.postman_collection.json --no-insecur
 
 Para executar no Postman Desktop, importe a coleção e selecione
 `docs/card-collections/k14` como diretório de trabalho. Nas requisições 07 a 09,
-confira se os campos de arquivo `images` apontam para `imagem-exemplo.png`.
+confira se os campos de arquivo `images` apontam para `sample-image.png`.
 Preserve o tipo `image/jpeg` explícito na requisição 08 para reproduzir a divergência.
 Se a aplicação estiver em outra porta, ajuste a variável `baseUrl`.
 

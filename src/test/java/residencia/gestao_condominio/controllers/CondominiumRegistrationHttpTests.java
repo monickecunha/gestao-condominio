@@ -24,6 +24,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"spring.datasource.url=jdbc:h2:mem:registration", "spring.jpa.hibernate.ddl-auto=create-drop"})
 class CondominiumRegistrationHttpTests {
+    @org.junit.jupiter.api.BeforeEach
+    void resetRateLimits() { apiRateLimiter.reset(); }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    residencia.gestao_condominio.security.ApiRateLimiter apiRateLimiter;
+
     private static final String PATH = "/api/v1/condominiums";
     private static final String CPF = "12345678901";
     private static final String PASSWORD = "teste-local";

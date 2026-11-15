@@ -27,10 +27,10 @@ Consulte apenas as fontes pertinentes à tarefa:
   [regras RN01–RN13](docs/businessRules.md) e [Kanban](docs/kanban.md).
 - **API e decisões:** [contrato HTTP](docs/api_contract.md) e [decisões K01](docs/k01_technical_decisions_summary.md).
 - **Fluxos sensíveis:** [K04 — segurança](docs/k04_authentication_authorization.md),
-  [K05 — cadastro e unidades](docs/k05_cadastro_inicial.md) e [K06 — vínculos](docs/k06_vinculos.md).
-- **Persistência:** [arquitetura K03](docs/architecture_and_entities.md) e [modelo relacional](docs/diagrama_er_condominio.md).
+  [K05 — cadastro e unidades](docs/k05_initial_registration.md) e [K06 — vínculos](docs/k06_unit_bindings.md).
+- **Persistência:** [arquitetura K03](docs/architecture_and_entities.md) e [modelo relacional](docs/condominium_er_diagram.md).
 - **Validação:** [guia de testes](docs/testing.md), [CI](.github/workflows/build.yml)
-  e [coleção Postman](docs/gestao-condominio.postman_collection.json).
+  e [coleção Postman](docs/condominium-management.postman_collection.json).
 
 Priorize instruções explícitas e requisitos da tarefa, respeitando instruções superiores.
 Para entender a intenção do projeto, siga a documentação pertinente, as decisões aprovadas,
@@ -50,7 +50,7 @@ Siga o fluxo HTTP → controller/DTO → serviço → repositório/entidade:
 - Use `services` para regras, coordenação de gravações e limites transacionais, e `repositories`
   para consultas Spring Data JPA. Filtre e pagine no banco quando a operação for uma listagem paginada.
 - Em `entities`, preserve tabelas `tb_` em snake_case, IDs `Long`/`IDENTITY`, enums como texto,
-  herança `JOINED` de `User` e as restrições do [modelo relacional](docs/diagrama_er_condominio.md).
+  herança `JOINED` de `User` e as restrições do [modelo relacional](docs/condominium_er_diagram.md).
   Compare mapeamento e constraints com os dados já gravados antes de alterar a modelagem.
 - Use `security` para a política HTTP. Mantenha exceções de negócio na camada de serviço e
   traduza erros no tratador HTTP ou de segurança pertinente. Preserve o envelope, os códigos

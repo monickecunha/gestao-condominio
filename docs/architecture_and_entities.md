@@ -55,4 +55,4 @@ private String cnpj;
 
 ## Escopo e vínculos do MVP
 
-Um condomínio e um síndico por instalação. `Administrator` mantém relacionamento 1:1 com `Condominium`. `Resident` representa a conta; a unidade, o status de aprovação e o responsável são representados por `UnitBinding`. `Complaint` não referencia a conta nem o vínculo do denunciante. O [ER atualizado](diagrama_er_condominio.md) descreve as constraints e os testes.
+Um condomínio e um síndico por instalação. `Administrator` mantém relacionamento 1:1 com `Condominium`. `Resident` representa a conta; a unidade, o status de aprovação e o responsável são representados por `UnitBinding`. `Complaint` não referencia a conta nem o vínculo do denunciante. O [ER atualizado](condominium_er_diagram.md) descreve as constraints e os testes.

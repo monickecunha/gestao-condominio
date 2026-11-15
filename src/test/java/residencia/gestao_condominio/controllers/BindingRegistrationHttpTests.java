@@ -26,6 +26,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"spring.datasource.url=jdbc:h2:mem:k06", "spring.jpa.hibernate.ddl-auto=create-drop"})
 class BindingRegistrationHttpTests {
+    @org.springframework.beans.factory.annotation.Autowired
+    residencia.gestao_condominio.security.ApiRateLimiter apiRateLimiter;
+
     private static final String CPF = "44455566677";
     private static final String PASSWORD = "teste-morador";
     private static final String MANAGER_CPF = "11122233344";
@@ -44,6 +47,7 @@ class BindingRegistrationHttpTests {
 
     @BeforeEach
     void createAvailableUnit() {
+        apiRateLimiter.reset();
         var condo = condos.save(new Condominium(null, "Parque", null, null, null));
         unit = units.save(new Unit(null, condo, null, "101"));
     }
