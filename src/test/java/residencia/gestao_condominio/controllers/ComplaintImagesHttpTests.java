@@ -55,6 +55,12 @@ import static org.junit.jupiter.api.Assertions.*;
         properties = {"spring.datasource.url=jdbc:h2:mem:k14", "spring.jpa.hibernate.ddl-auto=create-drop"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ComplaintImagesHttpTests {
+    @org.junit.jupiter.api.BeforeEach
+    void resetRateLimits() { apiRateLimiter.reset(); }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    residencia.gestao_condominio.security.ApiRateLimiter apiRateLimiter;
+
     private static final int MIB = 1024 * 1024;
     private static final String PASSWORD = "senha-teste";
     private static final String MANAGER_CPF = "11122233344";

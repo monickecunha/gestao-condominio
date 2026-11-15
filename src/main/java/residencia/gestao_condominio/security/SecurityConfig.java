@@ -17,6 +17,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 
 @Configuration
+@org.springframework.scheduling.annotation.EnableScheduling
 public class SecurityConfig {
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
 
@@ -38,10 +39,11 @@ public class SecurityConfig {
         decoder.setJwtValidator(new JwtTimestampValidator(Duration.ZERO));
         return decoder;
     }
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, ApiAuthorization authorization) throws Exception {
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, ApiAuthorization authorization, ApiRateLimiter limiter) throws Exception {
         return http.csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .requestCache(cache -> cache.disable())
+            .addFilterBefore(new ApiRateLimitFilter(limiter), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .authorizeHttpRequests(requests -> requests
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/login", "/api/v1/condominiums", "/api/v1/bindings").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/complaints/protocol/*").permitAll()

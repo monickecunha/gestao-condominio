@@ -12,7 +12,7 @@ A requisição reúne os dados de `condominium` e `manager`. No sucesso, a API d
 
 O MVP admite um condomínio e um síndico por instalação. O método `register` de `CondominiumRegistrationService` usa `@Transactional` para gravar primeiro o condomínio e depois o administrador associado a ele. Se o CPF já estiver em uso, a gravação do administrador falha e a transação desfaz a inserção do condomínio. A instalação continua disponível para uma nova tentativa válida.
 
-A restrição de unicidade da coluna `singleton` garante essa regra inclusive quando dois cadastros chegam ao mesmo tempo. O banco aceita uma das transações, e a outra requisição recebe `409 Conflict`. A associação única e obrigatória entre administrador e condomínio já faz parte do [modelo da K03](diagrama_er_condominio.md).
+A restrição de unicidade da coluna `singleton` garante essa regra inclusive quando dois cadastros chegam ao mesmo tempo. O banco aceita uma das transações, e a outra requisição recebe `409 Conflict`. A associação única e obrigatória entre administrador e condomínio já faz parte do [modelo da K03](condominium_er_diagram.md).
 
 ## Responsabilidades e respostas de erro
 
@@ -24,7 +24,7 @@ A restrição de unicidade da coluna `singleton` garante essa regra inclusive qu
 
 Depois do login, o síndico usa `POST` e `GET /api/v1/condominiums/{condoId}/units`. A autorização da K04 exige o perfil `MANAGER`, confere no banco a associação do síndico com o condomínio e verifica se o ID da URL corresponde ao do token. O `UnitController` passa ao `UnitService` o ID extraído do token. Assim, tanto a gravação quanto a consulta usam o condomínio autorizado.
 
-O número da unidade é um texto obrigatório e o bloco é opcional, ambos com até 20 caracteres. A unidade é identificada, dentro do condomínio, pela combinação de bloco e número. Por exemplo, cadastrar `{"number":"101"}` retorna `201` com `id`, `number` e `block: ""`. Repetir o cadastro com o bloco vazio retorna `409`, pois bloco omitido e vazio representam a mesma unidade. Cadastrar o número `101` no bloco `B` cria outra unidade. A restrição de unicidade está no [modelo de dados](diagrama_er_condominio.md).
+O número da unidade é um texto obrigatório e o bloco é opcional, ambos com até 20 caracteres. A unidade é identificada, dentro do condomínio, pela combinação de bloco e número. Por exemplo, cadastrar `{"number":"101"}` retorna `201` com `id`, `number` e `block: ""`. Repetir o cadastro com o bloco vazio retorna `409`, pois bloco omitido e vazio representam a mesma unidade. Cadastrar o número `101` no bloco `B` cria outra unidade. A restrição de unicidade está no [modelo de dados](condominium_er_diagram.md).
 
 A listagem retorna `200` com as unidades do condomínio em ordem crescente de ID, ou `[]` se ainda não houver unidades. Os exemplos executáveis de criação e consulta estão no [contrato HTTP](api_contract.md).
 

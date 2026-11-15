@@ -4,7 +4,7 @@ A primeira entrega da [K06](https://github.com/monickecunha/gestao-condominio/is
 
 ## Como o pedido é registrado
 
-1. O síndico cadastra a unidade e a API devolve seu `id`. Esse é o `unitId` usado no pedido. Por exemplo, se a unidade 101 tem `id: 3`, o morador envia `unitId: 3`. Veja o fluxo anterior na [K05](k05_cadastro_inicial.md).
+1. O síndico cadastra a unidade e a API devolve seu `id`. Esse é o `unitId` usado no pedido. Por exemplo, se a unidade 101 tem `id: 3`, o morador envia `unitId: 3`. Veja o fluxo anterior na [K05](k05_initial_registration.md).
 2. O morador envia `POST /api/v1/bindings` sem token, pois está criando sua primeira conta. O `BindingController` recebe o `BindingRequest` com quatro campos obrigatórios: `name` (até 150 caracteres), `cpf` (até 14), `password` (até 72 bytes em UTF-8) e `unitId` (inteiro positivo). O condomínio é determinado pela unidade cadastrada.
 3. O `BindingService` localiza a unidade, protege a senha com o mesmo BCrypt usado pela K04 e grava a conta e o vínculo em uma única transação. O servidor define o status inicial. A resposta `201 Created` contém `bindingId`, `unitId` e `status: "PENDING"`. Há um exemplo executável no [contrato HTTP](api_contract.md).
 
@@ -32,7 +32,7 @@ Cada item informa `bindingId`, `residentName`, `unitId`, `number`, `block`, `sta
 
 ### Validação no Postman
 
-Em 08/11/2026, a equipe validou o fluxo com H2 em memória. Para reproduzir, inicie a aplicação com o perfil `setup` e execute as requisições da [coleção do Postman](gestao-condominio.postman_collection.json) em ordem.
+Em 08/11/2026, a equipe validou o fluxo com H2 em memória. Para reproduzir, inicie a aplicação com o perfil `setup` e execute as requisições da [coleção do Postman](condominium-management.postman_collection.json) em ordem.
 
 | Requisição | Resultado observado |
 |---|---|
@@ -64,7 +64,7 @@ Dois envios simultâneos para aprovar o mesmo pedido resultam em uma aprovação
 um conflito. O morador não pode se autoaprovar; o síndico de outro condomínio
 recebe a mesma negativa que receberia para um ID inexistente.
 
-Para validar manualmente, importe a [coleção atualizada](gestao-condominio.postman_collection.json)
+Para validar manualmente, importe a [coleção atualizada](condominium-management.postman_collection.json)
 e execute em ordem com o banco vazio. As requisições 7 e 8 guardam os IDs de Ana e Bruno;
 as requisições 12 a 16 testam permissões, prioridade, aprovação e a fila resultante.
 

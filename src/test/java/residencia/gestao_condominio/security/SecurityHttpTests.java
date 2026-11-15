@@ -18,6 +18,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"spring.datasource.url=jdbc:h2:mem:k04", "spring.jpa.hibernate.ddl-auto=create-drop", "spring.jpa.show-sql=false"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SecurityHttpTests {
+    @org.junit.jupiter.api.BeforeEach
+    void resetRateLimits() { apiRateLimiter.reset(); }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    residencia.gestao_condominio.security.ApiRateLimiter apiRateLimiter;
+
     private static final String VALID_COMPLAINT = """
             {"category":"NOISE","description":"Barulho após as 22h."}
             """;

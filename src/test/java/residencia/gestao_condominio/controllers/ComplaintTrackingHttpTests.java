@@ -28,6 +28,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"spring.datasource.url=jdbc:h2:mem:k08", "spring.jpa.hibernate.ddl-auto=create-drop"})
 class ComplaintTrackingHttpTests {
+    @org.springframework.beans.factory.annotation.Autowired
+    residencia.gestao_condominio.security.ApiRateLimiter apiRateLimiter;
+
     private static final String CPF = "44455566677";
     private static final String PASSWORD = "teste-morador";
     private static final String DESCRIPTION = "Barulho apos as 22h.";
@@ -50,6 +53,7 @@ class ComplaintTrackingHttpTests {
 
     @BeforeEach
     void registerComplaintAsApprovedResident() throws Exception {
+        apiRateLimiter.reset();
         limiter.reset();
         var condo = condos.save(new Condominium(null, "Parque", null, null, null));
         var unit = units.save(new Unit(null, condo, null, "101"));

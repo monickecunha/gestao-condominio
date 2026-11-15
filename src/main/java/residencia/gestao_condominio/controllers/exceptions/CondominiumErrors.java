@@ -107,6 +107,10 @@ public class CondominiumErrors {
                                                HttpServletRequest request, List<FieldError> fields) {
         var body = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(),
                 message, request.getRequestURI(), fields);
-        return ResponseEntity.status(status).body(body);
+        var response = ResponseEntity.status(status);
+        if (status == HttpStatus.TOO_MANY_REQUESTS) {
+            response.header("Retry-After", "60").header("Cache-Control", "no-store");
+        }
+        return response.body(body);
     }
 }

@@ -30,6 +30,12 @@ import static org.junit.jupiter.api.Assertions.*;
         properties = {"spring.datasource.url=jdbc:h2:mem:k15", "spring.jpa.hibernate.ddl-auto=create-drop"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ComplaintFilterHttpTests {
+    @org.junit.jupiter.api.BeforeEach
+    void resetRateLimits() { apiRateLimiter.reset(); }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    residencia.gestao_condominio.security.ApiRateLimiter apiRateLimiter;
+
     private static final String PASSWORD = "senha-teste";
     private static final String MANAGER_CPF = "11122233344";
     private static final String OTHER_MANAGER_CPF = "99988877766";

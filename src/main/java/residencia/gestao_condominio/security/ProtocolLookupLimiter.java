@@ -1,42 +1,23 @@
 package residencia.gestao_condominio.security;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
 import residencia.gestao_condominio.services.exceptions.TooManyRequestsException;
 
 @Component
 public class ProtocolLookupLimiter {
-
-    static final int MAX_ATTEMPTS = 10;
-    static final Duration WINDOW = Duration.ofMinutes(1);
-
-    private final Map<String, Window> windows = new ConcurrentHashMap<>();
-
-    private record Window(Instant start, int count) {}
+    private final RequestWindow window = new RequestWindow(10);
 
     public void check(String clientKey) {
-        Instant now = Instant.now();
+        if (!window.allow(clientKey)) throw new TooManyRequestsException();
+    }
 
-        if (windows.size() > 10_000) {
-            windows.entrySet().removeIf(e -> now.isAfter(e.getValue().start().plus(WINDOW)));
-        }
-
-        Window window = windows.compute(clientKey, (key, old)
-                -> old == null || now.isAfter(old.start().plus(WINDOW))
-                ? new Window(now, 1)
-                : new Window(old.start(), old.count() + 1));
-
-        if (window.count() > MAX_ATTEMPTS) {
-            throw new TooManyRequestsException();
-        }
+    @Scheduled(fixedDelay = 60_000)
+    public void purgeExpired() {
+        window.purgeExpired();
     }
 
     public void reset() {
-        windows.clear();
+        window.reset();
     }
 }

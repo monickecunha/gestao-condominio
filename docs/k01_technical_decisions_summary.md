@@ -57,4 +57,4 @@ This document consolidates the technical definitions required to complete issue 
 * **Maximum File Count:** Up to **3 images** per complaint submission.
 * **Maximum File Size:** **5 MB** per individual file.
 * **Maximum Request Size:** **15 MB** overall for multipart requests.
-* **Sanitization:** Uploaded files receive randomly generated UUID names on storage to overwrite original filenames and remove metadata (including EXIF location/camera information).
+* **Sanitization:** Uploaded files receive randomly generated UUID names to replace original filenames. Renaming alone does not remove metadata: K14 decodes and re-encodes JPEG/PNG pixels and removes metadata chunks from static WebP containers before storage (including EXIF location/camera information).

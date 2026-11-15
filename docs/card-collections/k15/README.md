@@ -104,4 +104,4 @@ Nas listagens dos passos 17–27, o padrão é `page: 0` e `size: 20`, exceto no
 
 - O passo 35 é ignorado quando `otherManagerToken` está vazio. Para executá-lo, é necessário preparar outro condomínio no mesmo servidor, com token válido e até 100 denúncias correspondentes aos filtros. O perfil padrão admite um único condomínio; a coleção não altera essa regra.
 - O isolamento com dois condomínios e a virada do dia no fuso de Brasília são cobertos pelos testes automatizados `ComplaintFilterHttpTests`. Esta coleção usa os horários reais de criação e não modifica datas diretamente no banco.
-- A coleção geral permanece disponível em [gestao-condominio.postman_collection.json](../../gestao-condominio.postman_collection.json).
+- A coleção geral permanece disponível em [condominium-management.postman_collection.json](../../condominium-management.postman_collection.json).
