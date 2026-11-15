@@ -12,6 +12,7 @@ import residencia.gestao_condominio.dto.BindingRequest;
 import residencia.gestao_condominio.dto.BindingResponse;
 import residencia.gestao_condominio.entities.BindingStatus;
 import residencia.gestao_condominio.entities.Resident;
+import residencia.gestao_condominio.entities.Unit;
 import residencia.gestao_condominio.entities.UnitBinding;
 import residencia.gestao_condominio.repositories.ResidentRepository;
 import residencia.gestao_condominio.repositories.UnitBindingRepository;
@@ -74,6 +75,22 @@ public class BindingService {
     public BindingResponse register(BindingRequest request) {
         var unit = units.lockForRegistration(request.unitId())
                 .orElseThrow(() -> new EntityNotFoundException("Unit not found"));
+        return createPendingBinding(unit, request);
+    }
+
+    @Transactional
+    public BindingResponse registerAdditional(Long residentId, Long condoId, BindingRequest request) {
+        var unit = units.lockForRegistration(request.unitId())
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+        if (!unit.getCondominium().getId().equals(condoId)
+                || !bindings.existsByResidentIdAndUnitIdAndStatusAndPrimarySlotIsNotNull(
+                        residentId, unit.getId(), BindingStatus.APPROVED)) {
+            throw new AccessDeniedException("Access denied");
+        }
+        return createPendingBinding(unit, request);
+    }
+
+    private BindingResponse createPendingBinding(Unit unit, BindingRequest request) {
         var resident = residents.save(new Resident(null, request.name(), request.cpf(), null,
                 passwords.encode(request.password())));
 

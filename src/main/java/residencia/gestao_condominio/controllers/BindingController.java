@@ -44,4 +44,12 @@ public class BindingController {
     public BindingResponse register(@Valid @RequestBody BindingRequest request) {
         return bindings.register(request);
     }
+
+    @PostMapping("/additional")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BindingResponse registerAdditional(@Valid @RequestBody BindingRequest request,
+                                              @AuthenticationPrincipal Jwt jwt) {
+        return bindings.registerAdditional(Long.valueOf(jwt.getSubject()),
+                jwt.<Number>getClaim("condoId").longValue(), request);
+    }
 }

@@ -21,6 +21,7 @@ Todos os caminhos abaixo usam a URL base. Para corpos JSON, envie `Content-Type:
 | `POST /condominiums/{condoId}/units` | Bearer do síndico | `condoId` do login na URL. Corpo com `number` obrigatório e `block` opcional. | 201 com `id`, `number` e `block` |
 | `GET /condominiums/{condoId}/units` | Bearer do síndico | `condoId` do login na URL. Sem corpo. | 200 com lista, inclusive `[]` |
 | `POST /bindings` | No Auth | Corpo com `name`, `cpf`, `password` e `unitId` (o `id` retornado ao criar a unidade). | 201 com `bindingId`, `unitId` e `status: "PENDING"` |
+| `POST /bindings/additional` | Bearer do morador responsável aprovado | Corpo com `name`, `cpf`, `password` e `unitId` da unidade pela qual responde. | 201 com o novo vínculo pendente |
 | `GET /bindings` | Bearer do síndico | Sem corpo. Parâmetro opcional `status=PENDING`. | 200 com os pedidos pendentes do condomínio, inclusive `[]` |
 | `POST /bindings/{bindingId}/approve` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
@@ -171,6 +172,27 @@ e o morador ainda não é responsável pela unidade. O login da K04 já retorna
 | Campo obrigatório ausente ou inválido | 400 no envelope de validação |
 | Unidade inexistente | 404; a conta e o vínculo não são criados |
 | CPF já cadastrado, inclusive ao repetir o pedido | 409; senha e vínculos existentes são preservados |
+
+### `POST /bindings/additional` — Cadastrar outro morador da unidade (K16)
+
+Use o token do morador responsável aprovado e o ID da unidade em que ele é responsável.
+
+```bash
+curl -i -H "Authorization: Bearer $PRIMARY_RESIDENT_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Bruno","cpf":"55566677788","password":"senha-inicial","unitId":1}' \
+  http://localhost:8080/api/v1/bindings/additional
+```
+
+Exemplo de corpo da resposta `201 Created`.
+
+```json
+{"bindingId":2,"unitId":1,"status":"PENDING"}
+```
+
+O síndico decide o pedido pelos endpoints de aprovação e rejeição do K06. Enquanto o vínculo estiver pendente, o novo morador pode entrar na API e recebe `403` ao tentar denunciar. Após aprovação, o vínculo adicional continua sem a indicação de responsável.
+
+Dados inválidos retornam `400`. Sem autenticação válida, a API retorna `401`. O retorno é `403` para perfis sem permissão, moradores sem vínculo aprovado como responsável na unidade solicitada ou IDs de unidade inexistentes. Um CPF já cadastrado retorna `409` e preserva a conta e os vínculos existentes.
 
 ### `GET /bindings` — Pedidos pendentes do condomínio (K06)
 
