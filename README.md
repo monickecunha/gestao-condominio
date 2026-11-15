@@ -37,6 +37,7 @@ Os documentos da aplicação estão na pasta [docs](docs/):
 - [Arquitetura e entidades](docs/architecture_and_entities.md)
 - [Diagrama relacional](docs/condominium_er_diagram.md)
 - [Privacidade e proteção contra abuso (K17)](docs/k17_privacy_abuse_protection.md)
+- [Homologação do backend (K18)](docs/k18_backend_acceptance.md)
 - [Comandos de testes](docs/testing.md)
 - [Guia do Kanban](docs/kanban.md)
 - [Dados dos cartões do Kanban](docs/kanban-items.json)

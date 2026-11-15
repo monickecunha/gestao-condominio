@@ -24,7 +24,7 @@ Para executar somente esta classe:
 
 ## Roteiro HTTP manual
 
-Inicie a aplicação com o perfil `setup` (veja o [contrato da API](api_contract.md)). Na [coleção do Postman](gestao-condominio.postman_collection.json), execute os passos 1 a 37 para criar condomínio, unidade, morador aprovado e denúncia. Em seguida:
+Inicie a aplicação com o perfil `setup` (veja o [contrato da API](api_contract.md)). Na [coleção do Postman](condominium-management.postman_collection.json), execute os passos 1 a 37 para criar condomínio, unidade, morador aprovado e denúncia. Em seguida:
 
 | Passo | Requisição | Token | Esperado |
 |---|---|---|---|
@@ -39,4 +39,4 @@ Inicie a aplicação com o perfil `setup` (veja o [contrato da API](api_contract
 | 9 | `GET /complaints?status=RESOLVED` | Síndico | 200, denúncia na lista |
 | 10 | `GET /complaints/protocol/{protocol}` | Nenhum | 200, três itens em `statusHistory`, sem providências |
 
-Os passos 38 a 88 da coleção já automatizam essas chamadas, inclusive os filtros do K15. Imagens (K14) serão incluídas quando o cartão estiver disponível.
+Os passos 38 a 88 da coleção já automatizam essas chamadas, inclusive os filtros do K15. Para imagens, execute a [coleção específica da K14](card-collections/k14/README.md), já disponível, em uma nova instância com H2 vazio.
