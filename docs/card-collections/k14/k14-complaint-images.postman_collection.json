@@ -1,0 +1,610 @@
+{
+  "info": {
+    "name": "Gestão de Condomínio — K14 Imagens",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    },
+    {
+      "key": "condoId",
+      "value": ""
+    },
+    {
+      "key": "unitId",
+      "value": ""
+    },
+    {
+      "key": "anaBindingId",
+      "value": ""
+    },
+    {
+      "key": "residentToken",
+      "value": ""
+    },
+    {
+      "key": "complaintProtocol",
+      "value": ""
+    },
+    {
+      "key": "complaintId",
+      "value": ""
+    },
+    {
+      "key": "imageId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Cadastrar condomínio e síndico",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/condominiums",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"condominium\": {\n    \"name\": \"Residencial Parque\"\n  },\n  \"manager\": {\n    \"name\": \"Maria\",\n    \"cpf\": \"12345678901\",\n    \"password\": \"teste-local\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Fazer login como síndico",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cpf\": \"12345678901\",\n  \"password\": \"teste-local\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"managerToken\", data.token);",
+              "  pm.collectionVariables.set(\"condoId\", data.condoId);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Criar unidade 101",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/condominiums/{{condoId}}/units",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"number\": \"101\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "  const data = pm.response.json();",
+              "  pm.collectionVariables.set(\"unitId\", data.id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Solicitar vínculo de morador",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/bindings",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ana\",\n  \"cpf\": \"44455566677\",\n  \"password\": \"teste-morador\",\n  \"unitId\": {{unitId}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) pm.collectionVariables.set(\"anaBindingId\", pm.response.json().bindingId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Aprovar Ana",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/bindings/{{anaBindingId}}/approve",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "header": []
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Fazer login como morador aprovado",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cpf\": \"44455566677\",\n  \"password\": \"teste-morador\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200) pm.collectionVariables.set(\"residentToken\", pm.response.json().token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Enviar imagem com uma denúncia",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "complaint",
+              "type": "text",
+              "contentType": "application/json",
+              "value": "{\"category\":\"NOISE\",\"description\":\"Barulho no corredor após as 22h.\"}"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "src": "imagem-exemplo.png",
+              "contentType": "image/png"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "if (pm.response.code === 201) {",
+              "  const receipt = pm.response.json();",
+              "  pm.test(\"Recibo contém apenas mensagem e protocolo\", () => pm.expect(receipt).to.have.all.keys(\"protocol\", \"message\"));",
+              "  pm.collectionVariables.set(\"complaintProtocol\", receipt.protocol);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Recusar imagem com MIME incompatível",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "complaint",
+              "type": "text",
+              "contentType": "application/json",
+              "value": "{\"category\":\"NOISE\",\"description\":\"Barulho no corredor após as 22h.\"}"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "src": "imagem-exemplo.png",
+              "contentType": "image/jpeg"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Recusar quatro imagens",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "complaint",
+              "type": "text",
+              "contentType": "application/json",
+              "value": "{\"category\":\"NOISE\",\"description\":\"Barulho no corredor após as 22h.\"}"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "src": "imagem-exemplo.png",
+              "contentType": "image/png"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "src": "imagem-exemplo.png",
+              "contentType": "image/png"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "src": "imagem-exemplo.png",
+              "contentType": "image/png"
+            },
+            {
+              "key": "images",
+              "type": "file",
+              "src": "imagem-exemplo.png",
+              "contentType": "image/png"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Localizar denúncia como síndico",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Somente a denúncia válida foi criada\", () => {",
+              "  const page = pm.response.json();",
+              "  pm.expect(page.totalElements).to.eql(1);",
+              "  pm.expect(page.content[0].protocol).to.eql(pm.collectionVariables.get(\"complaintProtocol\"));",
+              "  pm.collectionVariables.set(\"complaintId\", page.content[0].id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Obter URL do anexo nos detalhes administrativos",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{complaintId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Detalhes contêm somente a referência do anexo\", () => {",
+              "  const attachments = pm.response.json().attachments;",
+              "  pm.expect(attachments).to.have.lengthOf(1);",
+              "  const attachment = attachments[0];",
+              "  pm.expect(attachment).to.have.all.keys(\"imageId\", \"url\");",
+              "  pm.expect(attachment.url).to.eql(`/api/v1/complaints/${pm.collectionVariables.get(\"complaintId\")}/images/${attachment.imageId}`);",
+              "  pm.collectionVariables.set(\"imageId\", attachment.imageId);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Recuperar PNG como síndico",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{complaintId}}/images/{{imageId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{managerToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Resposta contém PNG\", () => {",
+              "  pm.expect(pm.response.headers.get(\"Content-Type\")).to.eql(\"image/png\");",
+              "  const signature = Array.from(pm.response.stream.slice(0, 8));",
+              "  pm.expect(signature).to.eql([137,80,78,71,13,10,26,10]);",
+              "  pm.expect(pm.response.stream.toString('latin1')).not.to.include('Dados ficticios de teste');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Recusar acesso ao anexo como morador",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{complaintId}}/images/{{imageId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{residentToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Exigir autenticação para recuperar anexo",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/{{complaintId}}/images/{{imageId}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Acompanhar denúncia publicamente",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints/protocol/{{complaintProtocol}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Acompanhamento contém somente campos públicos\", () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data).to.have.all.keys(\"protocol\", \"category\", \"status\", \"createdAt\", \"updatedAt\", \"statusHistory\");",
+              "  pm.expect(data.protocol).to.eql(pm.collectionVariables.get(\"complaintProtocol\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

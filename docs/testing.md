@@ -73,3 +73,16 @@ Veja [autenticação e autorização](k04_authentication_authorization.md) para 
 ```powershell
 .\mvnw.cmd "-Dtest=SecurityHttpTests" test
 ```
+
+## Imagens de denúncias (K14)
+
+`ComplaintImagesHttpTests` verifica por HTTP com H2 o envio multipart, os limites
+de upload, a persistência e recuperação da imagem sanitizada e as permissões de
+acesso. Execute a classe na raiz do projeto.
+
+```powershell
+.\mvnw.cmd "-Dtest=ComplaintImagesHttpTests" test
+```
+
+Para executar as chamadas manualmente ou pelo Postman CLI, use o
+[roteiro independente do K14](card-collections/k14/README.md).

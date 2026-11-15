@@ -12,7 +12,7 @@ Este documento define os principais endpoints, payloads (DTOs) e retornos da API
 
 ## Endpoints disponíveis nesta versão
 
-Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Content-Type: application/json`. No Postman, use **Body → raw → JSON**. Para as operações do síndico, selecione **Authorization → Bearer Token** e cole o token retornado pelo login.
+Todos os caminhos abaixo usam a URL base. Para corpos JSON, envie `Content-Type: application/json`. No Postman, use **Body → raw → JSON**. O envio de imagens usa `multipart/form-data`. Para as operações do síndico, selecione **Authorization → Bearer Token** e cole o token retornado pelo login.
 
 | Método e caminho | Autorização | Dados necessários | Sucesso |
 |---|---|---|---|
@@ -24,17 +24,18 @@ Todos os caminhos abaixo usam a URL base. Nas requisições com corpo, envie `Co
 | `GET /bindings` | Bearer do síndico | Sem corpo. Parâmetro opcional `status=PENDING`. | 200 com os pedidos pendentes do condomínio, inclusive `[]` |
 | `POST /bindings/{bindingId}/approve` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
 | `POST /bindings/{bindingId}/reject` | Bearer do síndico | ID do pedido na URL. Sem corpo. | 204 sem corpo |
-| `POST /complaints` | Bearer de morador aprovado | Corpo com `category` e `description`; `location` opcional. | 201 com protocolo e mensagem |
+| `POST /complaints` | Bearer de morador aprovado | JSON com `category` e `description`, com `location` opcional. Para enviar imagens, use multipart com a parte JSON `complaint` e até três arquivos `images`. | 201 com protocolo e mensagem |
 | `GET /complaints/protocol/{protocol}` | Público | Protocolo retornado no cadastro | 200 com status e histórico público |
 | `GET /complaints` | Síndico | Filtros opcionais `category`, `status`, `from` e `to`; paginação com `page` e `size` | 200 com página filtrada do próprio condomínio |
-| `GET /complaints/{id}` | Síndico | ID da denúncia | 200 com detalhes e providências internas |
+| `GET /complaints/{id}` | Síndico | ID da denúncia | 200 com detalhes, referências dos anexos e providências internas |
+| `GET /complaints/{id}/images/{imageId}` | Síndico do condomínio da denúncia | IDs da denúncia e da imagem, fornecidos pelo detalhe administrativo | 200 com bytes da imagem |
 | `PATCH /complaints/{id}/status` | Síndico | `newStatus` e justificativa obrigatória na rejeição | 200 com a transição registrada |
 | `POST /complaints/{id}/actions` | Síndico | `actionDescription` | 201 com a providência registrada |
 
 ---
 
 ## 1. Padrão de Erros (Error Handling)
-Todas as respostas de erro (400, 401, 403, 404, 500) seguirão este formato padrão:
+As respostas de erro da API usam este formato, inclusive o erro 413 por excesso de tamanho no upload.
 
 ```json
 {
@@ -254,6 +255,35 @@ A denúncia começa em `RECEIVED`. O registro guarda o condomínio e os dados da
     }
     ```
 
+#### Anexar imagens à denúncia (K14)
+
+Para criar a denúncia com imagens opcionais, envie `multipart/form-data` com a
+parte obrigatória `complaint` de tipo `application/json` e uma parte `images`
+por arquivo. O envio apenas em JSON continua disponível.
+
+```bash
+curl -i -H "Authorization: Bearer $RESIDENT_TOKEN" \
+  -F 'complaint={"category":"NOISE","description":"Barulho no corredor."};type=application/json' \
+  -F 'images=@docs/card-collections/k14/imagem-exemplo.png;type=image/png' \
+  http://localhost:8080/api/v1/complaints
+```
+
+Os tipos aceitos são `image/jpeg`, `image/jpg`, `image/png` e `image/webp`.
+O conteúdo e o tipo declarado precisam corresponder. O limite é de três imagens,
+5 MiB por arquivo e 15 MiB para toda a requisição multipart, incluindo cabeçalhos e
+separadores das partes. A API limita a imagem a 16 milhões de pixels e aceita
+WebP estático. Ela gera nomes com UUID e remove metadados identificadores,
+como os dados de localização e câmera do EXIF, antes de gravar a imagem.
+
+Formato inválido, parte obrigatória ausente ou quantidade superior a três retorna
+`400`. A API também retorna `400` se a imagem ultrapassar 5 MiB após a
+sanitização. Excesso de tamanho na requisição ou no arquivo enviado retorna
+`413`.
+Se qualquer imagem for recusada, a denúncia e seus anexos não são gravados.
+O recibo `201` continua trazendo apenas protocolo e mensagem.
+
+Veja o [roteiro Postman do K14](card-collections/k14/README.md).
+
 ### `GET /complaints/protocol/{protocol}`
 Consulta pública do andamento da denúncia pelo protocolo (Não requer autenticação).
 *   **Response (200 OK):** *Apenas campos públicos.*
@@ -360,6 +390,12 @@ Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
       "createdAt": "2026-11-02T10:00:00Z",
       "fullDescription": "Barulho excessivo de furadeira após as 22h.",
       "location": "Corredor do 5º andar, bloco B",
+      "attachments": [
+        {
+          "imageId": 42,
+          "url": "/api/v1/complaints/15/images/42"
+        }
+      ],
       "internalActions": [
         {
           "actionDescription": "Notificação enviada ao morador do 501.",
@@ -369,6 +405,25 @@ Consulta interna detalhada da denúncia. (Requer perfil `MANAGER`).
       ]
     }
     ```
+
+O campo `attachments` é uma lista vazia quando a denúncia não tem imagens. As
+referências aos anexos são restritas ao detalhe administrativo.
+
+### `GET /complaints/{id}/images/{imageId}` — Recuperar imagem (K14)
+
+Use o Bearer do síndico e a URL indicada no detalhe administrativo.
+
+```bash
+curl -f -H "Authorization: Bearer $MANAGER_TOKEN" \
+  "http://localhost:8080/api/v1/complaints/$COMPLAINT_ID/images/$IMAGE_ID" \
+  --output imagem-baixada.png
+```
+
+O retorno `200` contém os bytes da imagem sanitizada, com `Content-Type` do
+formato armazenado e `Cache-Control: no-store`. Escolha a extensão do arquivo
+de saída conforme o tipo retornado.
+Token ausente ou inválido retorna `401`. Perfil sem permissão, outro condomínio
+ou um par de IDs inexistente ou incompatível retorna `403`.
 
 ### `PATCH /complaints/{id}/status`
 Atualiza o status de uma denúncia. (Requer perfil `MANAGER`).

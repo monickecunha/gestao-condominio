@@ -49,7 +49,7 @@ public class ApiAuthorization implements AuthorizationManager<RequestAuthorizati
                         allowed = ((p[5].equals("status") && request.getMethod().equals("PATCH")) || (p[5].equals("actions") && request.getMethod().equals("POST")))
                             && complaints.findByIdAndCondominiumId(Long.valueOf(p[4]), condo).isPresent();
                     } else if (path.matches("/api/v1/complaints/[0-9]+/images/[0-9]+")) {
-                        allowed = request.getMethod().equals("GET") && attachments.findByIdAndComplaintIdAndComplaintCondominiumId(Long.valueOf(p[6]), Long.valueOf(p[4]), condo).isPresent();
+                        allowed = request.getMethod().equals("GET") && attachments.existsByIdAndComplaintIdAndComplaintCondominiumId(Long.valueOf(p[6]), Long.valueOf(p[4]), condo);
                     }
                 }
             } catch (IllegalArgumentException | NullPointerException ex) { allowed = false; }
