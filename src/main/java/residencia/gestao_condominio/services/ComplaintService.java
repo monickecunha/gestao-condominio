@@ -1,0 +1,193 @@
+package residencia.gestao_condominio.services;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;    
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.persistence.EntityNotFoundException;
+import residencia.gestao_condominio.dto.ActionResponse;
+import residencia.gestao_condominio.dto.ComplaintDetailResponse;
+import residencia.gestao_condominio.dto.ComplaintReceipt;
+import residencia.gestao_condominio.dto.ComplaintSummaryResponse;
+import residencia.gestao_condominio.dto.ComplaintTrackingResponse;
+import residencia.gestao_condominio.dto.ComplaintTrackingResponse.StatusHistoryItem;
+import residencia.gestao_condominio.dto.CreateActionRequest;
+import residencia.gestao_condominio.dto.CreateComplaintRequest;
+import residencia.gestao_condominio.dto.PageResponse;
+import residencia.gestao_condominio.dto.UpdateComplaintStatusRequest;
+import residencia.gestao_condominio.entities.Action;
+import residencia.gestao_condominio.entities.Complaint;
+import residencia.gestao_condominio.entities.ComplaintStatusHistory;
+import residencia.gestao_condominio.repositories.ActionRepository;
+import residencia.gestao_condominio.repositories.AdministratorRepository;
+import residencia.gestao_condominio.repositories.ComplaintRepository;
+import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepository;
+import residencia.gestao_condominio.repositories.CondominiumRepository;
+import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
+import residencia.gestao_condominio.services.exceptions.InvalidComplaintImageException;
+import residencia.gestao_condominio.services.images.AttachmentStorage;
+import residencia.gestao_condominio.services.images.ImageSanitizer;
+import residencia.gestao_condominio.dto.ComplaintListFilter;
+
+@Service
+public class ComplaintService {
+
+    static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_IMAGES = 3;
+    static final ZoneId CONDOMINIUM_ZONE = ZoneId.of("America/Sao_Paulo");
+
+    private final ComplaintRepository complaints;
+    private final CondominiumRepository condominiums;
+    private final ComplaintStatusHistoryRepository history;
+
+    private final ActionRepository actions;
+    private final AdministratorRepository administrators;
+    private final AttachmentStorage attachments;
+    private final ImageSanitizer imageSanitizer;
+
+    public ComplaintService(ComplaintRepository complaints, CondominiumRepository condominiums, ComplaintStatusHistoryRepository history,
+            ActionRepository actions, AdministratorRepository administrators, AttachmentStorage attachments,
+            ImageSanitizer imageSanitizer) {
+        this.complaints = complaints;
+        this.condominiums = condominiums;
+        this.history = history;
+        this.actions = actions;
+        this.administrators = administrators;
+        this.attachments = attachments;
+        this.imageSanitizer = imageSanitizer;
+    }
+
+    @Transactional
+    public ComplaintReceipt register(Long condoId, CreateComplaintRequest request) {
+        return register(condoId, request, List.of());
+    }
+
+    @Transactional
+    public ComplaintReceipt register(Long condoId, CreateComplaintRequest request, List<MultipartFile> files) {
+        if (files.size() > MAX_IMAGES) {
+            throw new InvalidComplaintImageException("A complaint accepts up to three images");
+        }
+        var images = files.stream().map(this::sanitizeImage).toList();
+        var complaint = new Complaint();
+        complaint.setCondominium(condominiums.getReferenceById(condoId));
+        complaint.setCategory(request.category());
+        complaint.setDescription(request.description());
+        complaint.setLocation(request.location());
+        var saved = complaints.save(complaint);
+        for (var image : images) {
+            attachments.store(saved, image.mimeType(), image.bytes());
+        }
+        return new ComplaintReceipt(saved.getProtocol(), "Complaint registered successfully.");
+    }
+
+    private ImageSanitizer.SanitizedImage sanitizeImage(MultipartFile file) {
+        try {
+            return imageSanitizer.sanitize(file.getContentType(), file.getBytes());
+        } catch (IOException failure) {
+            throw new InvalidComplaintImageException("Could not read image");
+        }
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public ComplaintTrackingResponse trackByProtocol(String protocol) {
+
+        Complaint complaint = complaints.findByProtocol(protocol)
+                .orElseThrow(EntityNotFoundException::new);
+
+        var items = history.findAllByComplaintIdOrderByChangedAtAscIdAsc(complaint.getId()).stream()
+                .map(h -> new StatusHistoryItem(
+                        h.getPreviousStatus(),
+                        h.getNewStatus(),
+                        h.getChangedAt(),
+                        h.getJustification()))
+                .toList();
+
+        var updatedAt = items.isEmpty()
+                ? complaint.getCreatedAt()
+                : items.get(items.size() - 1).changedAt();
+
+        return new ComplaintTrackingResponse(
+                complaint.getProtocol(),
+                complaint.getCategory(),
+                complaint.getStatus(),
+                complaint.getCreatedAt(),
+                updatedAt,
+                items);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ComplaintSummaryResponse> listForManager(Long condoId, ComplaintListFilter filter, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        var pageable = PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
+
+        Instant start = filter.from() == null ? null
+                : filter.from().atStartOfDay(CONDOMINIUM_ZONE).toInstant();
+        Instant end = filter.to() == null ? null
+                : filter.to().plusDays(1).atStartOfDay(CONDOMINIUM_ZONE).toInstant();
+
+        var result = complaints.search(condoId, filter.category(), filter.status(), start, end, pageable)
+                .map(c -> new ComplaintSummaryResponse(
+                        c.getId(), c.getProtocol(), c.getCategory(), c.getCreatedAt(), c.getStatus()));
+        return PageResponse.from(result);
+    }
+
+    @Transactional(readOnly = true)
+    public ComplaintDetailResponse detailForManager(Long condoId, Long id) {
+        Complaint c = complaints.findByIdAndCondominiumId(id, condoId)
+                .orElseThrow(EntityNotFoundException::new);
+        var images = attachments.listIds(condoId, id).stream()
+                .map(imageId -> new ComplaintDetailResponse.ImageLink(
+                        imageId, "/api/v1/complaints/" + id + "/images/" + imageId))
+                .toList();
+        return new ComplaintDetailResponse(
+                c.getId(), c.getProtocol(), c.getCategory(), c.getStatus(),
+                c.getCreatedAt(), c.getDescription(), c.getLocation(),
+                images,
+                actions.findAllByComplaintIdOrderByCreatedAtAscIdAsc(id).stream().map(ActionResponse::from).toList());
+    }
+
+    @Transactional(readOnly = true)
+    public AttachmentStorage.StoredImage imageForManager(Long condoId, Long complaintId, Long imageId) {
+        return attachments.find(condoId, complaintId, imageId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+    }
+
+    @Transactional
+    public StatusHistoryItem updateStatus(Long condoId, Long id, UpdateComplaintStatusRequest request) {
+        var complaint = complaints.findByIdAndCondominiumId(id, condoId).orElseThrow(EntityNotFoundException::new);
+        var previous = complaint.getStatus();
+        var next = request.newStatus();
+        if (!previous.canTransitionTo(next) || complaints.changeStatus(id, condoId, previous, next) != 1) {
+            throw new ComplaintStatusConflictException();
+        }
+
+        var entry = new ComplaintStatusHistory();
+        entry.setComplaint(complaint);
+        entry.setPreviousStatus(previous);
+        entry.setNewStatus(next);
+        entry.setChangedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
+        entry.setJustification(request.justification());
+        history.save(entry);
+        return new StatusHistoryItem(previous, next, entry.getChangedAt(), entry.getJustification());
+    }
+
+    @Transactional
+    public ActionResponse registerAction(Long condoId, Long id, Long administratorId, CreateActionRequest request) {
+        var complaint = complaints.findByIdAndCondominiumId(id, condoId).orElseThrow(EntityNotFoundException::new);
+        var administrator = administrators.getReferenceById(administratorId);
+        var action = new Action(null, complaint, administrator, request.actionDescription(),
+                Instant.now().truncatedTo(ChronoUnit.MICROS));
+        return ActionResponse.from(actions.save(action));
+    }
+}

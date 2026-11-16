@@ -14,5 +14,6 @@
 | RN10 | A rejeição de uma denúncia deverá possuir justificativa. |
 | RN11 | Somente administradores autorizados poderão aprovar ou rejeitar vínculos de moradores com unidades. |
 | RN12 | O sistema deverá minimizar a coleta e o armazenamento de dados que possam identificar o denunciante. |
+| RN13 | Um vínculo rejeitado não permite login no respectivo condomínio. Se todos os vínculos do morador nesse condomínio estiverem rejeitados, o sistema deverá recusar o login. |
 
 ---

@@ -9,6 +9,8 @@ O projeto seguirá o padrão arquitetural em camadas, refletindo o modelo MVC ad
 *   `resources` (ou `controllers`): Controladores REST (endpoints) que recebem requisições HTTP e retornam respostas JSON.
 *   `dto` (Data Transfer Objects): Classes auxiliares para transitar dados entre a API e o cliente, garantindo que as `entities` não sejam expostas diretamente.
 
+Exceções próprias e tratadores de erro ficam no subpacote `exceptions` da camada responsável. Por exemplo, `services.exceptions` contém conflitos de regras de negócio, `controllers.exceptions` converte exceções em respostas HTTP e `security.exceptions` reúne o suporte às respostas de autenticação e autorização.
+
 ## 2. Padrão Estrutural das Entidades JPA
 
 Para manter a consistência com o banco de dados (H2 agora e PostgreSQL no futuro), todas as entidades devem seguir estritamente as regras abaixo:
@@ -53,4 +55,4 @@ private String cnpj;
 
 ## Escopo e vínculos do MVP
 
-Um condomínio e um síndico por instalação. `Administrator` mantém relacionamento 1:1 com `Condominium`. `Resident` representa a conta; a unidade, o status de aprovação e o responsável são representados por `UnitBinding`. `Complaint` não referencia a conta nem o vínculo do denunciante. O [ER atualizado](diagrama_er_condominio.md) descreve as constraints e os testes.
+Um condomínio e um síndico por instalação. `Administrator` mantém relacionamento 1:1 com `Condominium`. `Resident` representa a conta; a unidade, o status de aprovação e o responsável são representados por `UnitBinding`. `Complaint` não referencia a conta nem o vínculo do denunciante. O [ER atualizado](condominium_er_diagram.md) descreve as constraints e os testes.
