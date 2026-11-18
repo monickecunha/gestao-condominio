@@ -3256,6 +3256,60 @@
       ]
     },
     {
+      "name": "87a. Rejeitar deslocamento de paginação excessivo",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/complaints?page=2147483647&size=100",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{"key": "token", "value": "{{managerToken}}", "type": "string"}]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+            "pm.test(\"Envelope de paginação inválida\", () => {",
+            "  const error = pm.response.json();",
+            "  pm.expect(error.status).to.eql(400);",
+            "  pm.expect(error.message).to.eql(\"Pagination offset must not exceed 2147483647\");",
+            "  pm.expect(error.path).to.eql(\"/api/v1/complaints\");",
+            "  pm.expect(error.validationErrors).to.eql([]);",
+            "});"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "87b. Preservar erro de tipo de conteúdo no login",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/login",
+        "auth": {"type": "noauth"},
+        "header": [{"key": "Content-Type", "value": "text/plain"}],
+        "body": {"mode": "raw", "raw": "unsupported body"}
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test(\"HTTP 415\", () => pm.response.to.have.status(415));",
+            "pm.test(\"Envelope preservado no despacho de erro\", () => {",
+            "  const error = pm.response.json();",
+            "  pm.expect(error.status).to.eql(415);",
+            "  pm.expect(error.error).to.eql(\"Unsupported Media Type\");",
+            "  pm.expect(error.message).to.eql(\"Unsupported Media Type\");",
+            "  pm.expect(error.path).to.eql(\"/api/v1/auth/login\");",
+            "  pm.expect(error.validationErrors).to.eql([]);",
+            "});"
+          ]
+        }
+      }]
+    },
+    {
       "name": "88. Verificar o limite de consultas públicas",
       "request": {
         "method": "GET",

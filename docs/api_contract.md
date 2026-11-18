@@ -37,6 +37,8 @@ Todos os caminhos abaixo usam a URL base. Para corpos JSON, envie `Content-Type:
 
 ## 1. Padrão de Erros (Error Handling)
 As respostas de erro da API usam este formato, inclusive o erro 413 por excesso de tamanho no upload.
+Erros do MVC encaminhados internamente para `/error`, como `415 Unsupported Media Type`,
+preservam o status original e o mesmo envelope, com `validationErrors: []` e a rota original em `path`.
 
 ```json
 {
@@ -371,6 +373,10 @@ Os filtros são opcionais e podem ser combinados. Quando vários filtros são in
 | `size` | Quantidade de itens por página. Padrão: `20`. Valores menores que `1` são ajustados para `1`; valores maiores que `100` são limitados a `100`. |
 
 Informe categorias e status em maiúsculas, conforme os valores listados.
+
+Após ajustar `page` e `size` aos limites acima, o deslocamento `page × size` deve ser menor ou igual
+a `2147483647`. Valores acima desse limite retornam `400 Bad Request`, com
+`message: "Pagination offset must not exceed 2147483647"` e `validationErrors: []`.
 
 O período considera a data de registro (`createdAt`) no fuso `America/Sao_Paulo`. É possível informar apenas `from` ou apenas `to`; nesse caso, somente o limite informado é aplicado. Quando ambos são enviados, `from` deve ser anterior ou igual a `to`. Datas iguais selecionam um único dia.
 

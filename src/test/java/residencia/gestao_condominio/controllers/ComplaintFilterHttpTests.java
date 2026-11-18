@@ -160,6 +160,28 @@ class ComplaintFilterHttpTests {
     }
 
     @Test
+    void paginationRejectsOffsetsBeyondJpaLimit() throws Exception {
+        String token = login(MANAGER_CPF);
+        for (String query : new String[]{"?page=2147483647&size=100", "?page=21474837&size=100",
+                "?page=21474837&size=2147483647"}) {
+            var response = get("complaints" + query, token);
+            assertEquals(400, response.statusCode(), response.body());
+            var error = json.readTree(response.body());
+            assertEquals(400, error.get("status").asInt());
+            assertEquals("Bad Request", error.get("error").asString());
+            assertEquals("Pagination offset must not exceed 2147483647", error.get("message").asString());
+            assertEquals("/api/v1/complaints", error.get("path").asString());
+            assertEquals(0, error.get("validationErrors").size());
+        }
+        for (String query : new String[]{"?page=2147483647&size=1", "?page=21474836&size=100",
+                "?page=21474836&size=2147483647", "?page=2147483647&size=0"}) {
+            var response = get("complaints" + query, token);
+            assertEquals(200, response.statusCode(), response.body());
+            assertEquals(0, json.readTree(response.body()).get("content").size());
+        }
+    }
+
+    @Test
     void filtersDoNotOpenTheListToResidentsOrAnonymous() throws Exception {
         assertEquals(403, get("complaints?category=NOISE", login(RESIDENT_CPF)).statusCode());
         assertEquals(401, get("complaints?category=NOISE", null).statusCode());

@@ -75,6 +75,35 @@ class SecurityHttpTests {
         assertNotEquals("123456", hash);
         assertTrue(passwords.matches("123456", hash));
     }
+    @Test void mvcErrorsPreserveStatusAndEnvelope() throws Exception {
+        for (String token : new String[]{null, login("11122233344")}) {
+            var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/auth/login"))
+                    .header("Content-Type", "text/plain")
+                    .POST(HttpRequest.BodyPublishers.ofString("unsupported body"));
+            if (token != null) request.header("Authorization", "Bearer " + token);
+            var response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(415, response.statusCode(), response.body());
+            var error = json.readTree(response.body());
+            assertEquals(6, error.size());
+            assertNotNull(Instant.parse(error.get("timestamp").asString()));
+            assertEquals(415, error.get("status").asInt());
+            assertEquals("Unsupported Media Type", error.get("error").asString());
+            assertEquals("Unsupported Media Type", error.get("message").asString());
+            assertEquals("/api/v1/auth/login", error.get("path").asString());
+            assertTrue(error.get("validationErrors").isArray());
+            assertEquals(0, error.get("validationErrors").size());
+        }
+    }
+
+    @Test void directErrorRequestsStillRequireAuthorization() throws Exception {
+        for (String token : new String[]{null, login("11122233344")}) {
+            var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/error")).GET();
+            if (token != null) request.header("Authorization", "Bearer " + token);
+            var response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+            assertEquals(token == null ? 401 : 403, response.statusCode(), response.body());
+        }
+    }
+
     @Test void unauthenticatedAndPublicAccess() throws Exception {
         var response = call("GET", "/complaints", null, null);
         assertEquals(401, response.statusCode());

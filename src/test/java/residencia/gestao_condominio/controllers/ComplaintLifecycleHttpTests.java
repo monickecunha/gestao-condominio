@@ -167,7 +167,11 @@ class ComplaintLifecycleHttpTests {
         assertEquals(403, send("GET", "complaints/" + id, otherManager, null).statusCode());
         assertEquals(403, send("PATCH", status, otherManager, review).statusCode());
         assertEquals(403, send("POST", actions, otherManager, action).statusCode());
-        assertFalse(send("GET", "complaints?size=100", otherManager, null).body().contains(protocol));
+        var otherPage = read(send("GET", "complaints?size=100", otherManager, null), 200);
+        assertTrue(otherPage.get("content").isArray());
+        for (var item : otherPage.get("content")) {
+            assertNotEquals(protocol, item.get("protocol").asString());
+        }
 
         assertEquals(403, send("PATCH", status, resident, review).statusCode());
         assertEquals(403, send("POST", actions, resident, action).statusCode());

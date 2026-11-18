@@ -34,6 +34,7 @@ import residencia.gestao_condominio.repositories.ComplaintStatusHistoryRepositor
 import residencia.gestao_condominio.repositories.CondominiumRepository;
 import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
 import residencia.gestao_condominio.services.exceptions.InvalidComplaintImageException;
+import residencia.gestao_condominio.services.exceptions.InvalidPaginationException;
 import residencia.gestao_condominio.services.images.AttachmentStorage;
 import residencia.gestao_condominio.services.images.ImageSanitizer;
 import residencia.gestao_condominio.dto.ComplaintListFilter;
@@ -128,6 +129,9 @@ public class ComplaintService {
     public PageResponse<ComplaintSummaryResponse> listForManager(Long condoId, ComplaintListFilter filter, int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        if ((long) safePage * safeSize > Integer.MAX_VALUE) {
+            throw new InvalidPaginationException();
+        }
         var pageable = PageRequest.of(safePage, safeSize,
                 Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")));
 
