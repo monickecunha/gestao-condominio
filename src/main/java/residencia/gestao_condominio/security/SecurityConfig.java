@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.web.SecurityFilterChain;
 import residencia.gestao_condominio.security.exceptions.SecurityErrors;
 import javax.crypto.SecretKey;
+import jakarta.servlet.DispatcherType;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 import java.security.SecureRandom;
@@ -45,6 +46,7 @@ public class SecurityConfig {
             .requestCache(cache -> cache.disable())
             .addFilterBefore(new ApiRateLimitFilter(limiter), org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .authorizeHttpRequests(requests -> requests
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/login", "/api/v1/condominiums", "/api/v1/bindings").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/complaints/protocol/*").permitAll()
                 .anyRequest().access(authorization))

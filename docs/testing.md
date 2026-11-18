@@ -70,6 +70,13 @@ Se aparecer erro de versão do Java, confira `JAVA_HOME` e a saída do comando d
 
 Veja [autenticação e autorização](k04_authentication_authorization.md) para sessão, logout, configuração de chave e matriz de permissões. A classe `SecurityHttpTests` valida a API em servidor real com H2 isolado, incluindo tokens inválidos e acesso entre condomínios. Seus handlers de prova são exclusivos dos testes; não substituem os endpoints de negócio dos próximos cartões.
 
+`SecurityHttpTests` também verifica o status e o envelope do erro MVC 415, com e sem token,
+e a proteção de chamadas diretas a `/error`. `ComplaintFilterHttpTests` cobre o limite de
+deslocamento JPA (`2147483647`) e sua rejeição com 400 após ajustar o tamanho da página.
+`ComplaintLifecycleHttpTests` exige 200 na listagem de outro condomínio antes de conferir
+que `content` não contém o protocolo da denúncia original. Na coleção geral, os passos
+87a e 87b permitem conferir manualmente a rejeição de paginação e o erro 415.
+
 ```powershell
 .\mvnw.cmd "-Dtest=SecurityHttpTests" test
 ```

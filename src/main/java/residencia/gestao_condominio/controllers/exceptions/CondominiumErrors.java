@@ -26,6 +26,7 @@ import residencia.gestao_condominio.controllers.UnitController;
 import residencia.gestao_condominio.services.exceptions.BindingConflictException;
 import residencia.gestao_condominio.services.exceptions.ComplaintStatusConflictException;
 import residencia.gestao_condominio.services.exceptions.InvalidComplaintImageException;
+import residencia.gestao_condominio.services.exceptions.InvalidPaginationException;
 import residencia.gestao_condominio.services.exceptions.TooManyRequestsException;
 
 @RestControllerAdvice(assignableTypes = {CondominiumController.class, UnitController.class, BindingController.class, ComplaintController.class})
@@ -50,6 +51,11 @@ public class CondominiumErrors {
 
     @ExceptionHandler(InvalidComplaintImageException.class)
     ResponseEntity<ApiError> invalidImage(InvalidComplaintImageException failure, HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, failure.getMessage(), request, List.of());
+    }
+
+    @ExceptionHandler(InvalidPaginationException.class)
+    ResponseEntity<ApiError> invalidPagination(InvalidPaginationException failure, HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, failure.getMessage(), request, List.of());
     }
 
