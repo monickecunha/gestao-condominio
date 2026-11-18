@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123f36">
+  <meta name="description" content="Um espaço seguro para comunicar ocorrências e cuidar da convivência no condomínio.">
+  <title>Entre nós · Gestão de condomínio</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Pular para o conteúdo</a>
+<aside class="sidebar">
+  <a href="#inicio" class="brand"><span class="brand-icon" aria-hidden="true">en.</span><span>entre nós<small>CONVIVÊNCIA EM DIA</small></span></a>
+  <p class="nav-label">SEU CONDOMÍNIO</p>
+  <nav aria-label="Navegação principal">
+    <a href="#inicio">◈ <span>Visão geral</span></a>
+    <a href="#relatar">＋ <span>Registrar ocorrência</span></a>
+    <a href="#acompanhar">◎ <span>Acompanhar protocolo</span></a>
+    <a href="#acesso">↗ <span>Minha conta</span></a>
+    <a href="#gestao">▦ <span>Painel do síndico</span></a>
+    <a href="#cadastro">⌂ <span>Cadastrar condomínio</span></a>
+  </nav>
+  <div class="sidebar-note"><span class="lock" aria-hidden="true">◇</span><strong>Respeito começa com escuta.</strong><p>Seu relato ajuda a construir um lugar melhor para todos.</p></div>
+  <small class="sidebar-footer">Gestão de condomínio · MVP</small>
+</aside>
+<div class="workspace">
+  <header class="topbar"><span>Portal de convivência <span class="separator">/</span> <strong id="breadcrumb">Visão geral</strong></span><button id="account" class="account" type="button">Entrar na minha conta <span aria-hidden="true">↗</span></button></header>
+  <main id="main" tabindex="-1"></main>
+  <footer class="page-footer"><span>entre nós <span aria-hidden="true">·</span> Uma boa convivência se constrói juntos.</span><span>Comunicação com responsabilidade</span></footer>
+</div>
+<div id="notice" role="status" aria-live="polite" hidden></div>
+<dialog id="detail-dialog" aria-labelledby="detail-title"><button class="close" aria-label="Fechar detalhes" type="button">×</button><div id="detail-body"></div></dialog>
+</body>
+</html>

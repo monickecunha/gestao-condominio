@@ -24,6 +24,23 @@ java -jar target/gestao-condominio-0.0.1-SNAPSHOT.jar --spring.profiles.active=s
 
 O build executa os testes com H2 e gera o JAR. O perfil `setup` inicia a API na porta **8080** com H2 vazio em memória. Os dados são temporários e se perdem ao encerrar o processo com `Ctrl+C`. A demonstração funciona localmente com a API e um cliente HTTP.
 
+## Interface de demonstração
+
+Após iniciar a aplicação, abra [Entre nós](http://localhost:8080/). O front end usa HTML,
+CSS e JavaScript puro, em arquivos separados em `src/main/resources/static/`, sem build
+adicional. Todas as operações usam a API real na mesma origem.
+
+Para demonstrar do início, use o perfil `setup`: cadastre o condomínio, entre como síndico,
+crie uma unidade e anote seu ID. Saia da conta, cadastre um morador com esse ID, entre
+novamente como síndico e aprove o vínculo. Entre como morador para enviar uma ocorrência
+e guarde o protocolo. O síndico pode consultar detalhes, imagens, atualizar o status e
+registrar providências; o acompanhamento por protocolo é público. O responsável aprovado
+também pode solicitar vínculos adicionais pela área Minha conta.
+
+O token e o rascunho ficam apenas na memória da aba. Recarregar encerra a sessão local;
+não armazene dados reais em uma demonstração. Reiniciar o perfil `setup` apaga os dados H2.
+Não abra `index.html` diretamente pelo explorador: os formulários precisam do servidor.
+
 ## Documentação
 
 Os documentos da aplicação estão na pasta [docs](docs/):
