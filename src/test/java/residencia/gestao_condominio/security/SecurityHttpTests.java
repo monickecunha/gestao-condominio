@@ -111,6 +111,18 @@ class SecurityHttpTests {
         assertEquals(401, call("POST", "/complaints", null, "{}").statusCode());
         assertEquals(404, call("GET", "/complaints/protocol/550e8400-e29b-41d4-a716-446655440000", null, null).statusCode());
     }
+
+    @Test void frontendAssetsArePublicWithoutOpeningProtectedRoutes() throws Exception {
+        for (String path : new String[]{"/", "/index.html", "/styles.css", "/app.js"}) {
+            var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET().build();
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, response.statusCode(), path);
+            assertFalse(response.body().isBlank(), path);
+        }
+        assertEquals(401, call("GET", "/complaints", null, null).statusCode());
+        var unknown = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/private-file.js")).GET().build();
+        assertEquals(401, client.send(unknown, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
     @Test void rolesAndCurrentBinding() throws Exception {
         String approved = login("22233344455");
         String pending = login("33344455566");
